@@ -1,15 +1,18 @@
+@import url("https://fonts.googleapis.com/css2?family=Bungee:wght@400&family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
 :root {
-  --bg: #0d0907;
-  --bg2: #20130d;
-  --panel: #1a120c;
-  --panel-2: #25190f;
-  --line: #6f4424;
-  --text: #fff1e3;
-  --muted: #c9ae92;
-  --accent: #ff8f2f;
-  --acid: #8dfc5b;
-  --cyan: #5de9ff;
-  --danger: #ff5d6a;
+  --bg: #070417;
+  --bg2: #18002c;
+  --panel: #1b0f34;
+  --panel-2: #2d1456;
+  --line: #ff46c7;
+  --text: #ffe9ff;
+  --muted: #d8b6ff;
+  --accent: #ffcd00;
+  --pink: #ff4fd8;
+  --cyan: #44f8ff;
+  --lime: #9dff2e;
+  --danger: #ff5d7c;
 }
 
 * {
@@ -18,12 +21,12 @@
 
 body {
   margin: 0;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--text);
   min-height: 100vh;
   background:
-    radial-gradient(circle at 90% 5%, #52250f 0%, transparent 35%),
-    radial-gradient(circle at 8% 92%, #13353f 0%, transparent 35%),
+    radial-gradient(circle at 90% 5%, #4f156d 0%, transparent 32%),
+    radial-gradient(circle at 6% 88%, #0a5482 0%, transparent 36%),
     linear-gradient(140deg, var(--bg) 0%, var(--bg2) 100%);
 }
 
@@ -36,9 +39,12 @@ body {
 
 .topbar h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 2.7vw, 2.5rem);
-  letter-spacing: 0.03em;
+  font-family: "Bungee", sans-serif;
+  font-size: clamp(1.45rem, 2.8vw, 2.55rem);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 0 24px rgba(255, 79, 216, 0.45);
 }
 
 .topbar p {
@@ -49,17 +55,18 @@ body {
 .sync-panel,
 .controls,
 .gallery {
-  background: linear-gradient(170deg, var(--panel-2), var(--panel));
+  background: linear-gradient(165deg, var(--panel-2), var(--panel));
   border: 1px solid var(--line);
   border-radius: 0.25rem;
-  padding: 0.85rem;
+  padding: 0.9rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 79, 216, 0.2);
 }
 
 .sync-help,
 .gallery-help {
   margin: 0;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
 
 .sync-row {
@@ -70,24 +77,24 @@ body {
 
 .chip {
   margin: 0;
-  font-size: 0.8rem;
-  color: #111;
-  background: linear-gradient(90deg, var(--acid), #dcff8b);
+  font-size: 0.78rem;
+  color: #0a0620;
+  background: linear-gradient(90deg, var(--lime), #eaff8a);
   display: inline-flex;
   width: fit-content;
   border-radius: 999px;
-  padding: 0.32rem 0.72rem;
+  padding: 0.34rem 0.74rem;
   font-weight: 800;
 }
 
 #room-id {
-  flex: 1 1 220px;
-  min-width: 170px;
-  border: 1px solid #82502a;
+  flex: 1 1 230px;
+  min-width: 180px;
+  border: 1px solid #b648ff;
   border-radius: 0.2rem;
   padding: 0.58rem 0.72rem;
   color: var(--text);
-  background: #130c08;
+  background: #120522;
 }
 
 #sync-status {
@@ -106,7 +113,7 @@ body {
   border-radius: 0.25rem;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 28px 66px rgba(0, 0, 0, 0.5);
 }
 
 #hydra-canvas {
@@ -131,11 +138,11 @@ body {
   resize: vertical;
   padding: 0.8rem;
   border-radius: 0.2rem;
-  border: 1px solid #815129;
-  background: #0f0a07;
-  color: var(--text);
-  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.92rem;
+  border: 1px solid #aa41ff;
+  background: #0c0518;
+  color: #e9e9ff;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.9rem;
 }
 
 .buttons {
@@ -148,18 +155,21 @@ button {
   border: 0;
   border-radius: 0.2rem;
   padding: 0.62rem 0.9rem;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  color: #0e0905;
+  color: #14022f;
   background: var(--accent);
+  font-family: "Space Grotesk", sans-serif;
 }
 
 button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.08) saturate(1.1);
 }
 
-button#reset-btn {
-  background: #f8df6b;
+button#reset-btn,
+#overlay-clear-btn,
+button#clear-gallery-btn {
+  background: #ff9e3d;
 }
 
 button#ar-btn,
@@ -168,14 +178,17 @@ button#copy-link-btn,
   background: var(--cyan);
 }
 
-#overlay-clear-btn,
-button#clear-gallery-btn {
-  background: #ffc169;
+button#host-btn {
+  background: var(--lime);
+}
+
+button#join-btn {
+  background: var(--pink);
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 #status {
@@ -197,9 +210,10 @@ button:disabled {
 
 .gallery-head h2 {
   margin: 0;
-  text-transform: uppercase;
+  font-family: "Bungee", sans-serif;
   letter-spacing: 0.03em;
   font-size: 1rem;
+  color: #fff;
 }
 
 .gallery-grid {
@@ -212,7 +226,7 @@ button:disabled {
 .gallery-card {
   border: 1px solid var(--line);
   border-radius: 0.2rem;
-  background: #120d09;
+  background: #120522;
   overflow: hidden;
 }
 
@@ -226,7 +240,7 @@ button:disabled {
 .gallery-meta {
   margin: 0;
   padding: 0.45rem;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
@@ -251,13 +265,16 @@ button:disabled {
   position: fixed;
   top: 0.9rem;
   right: 0.9rem;
-  z-index: 1002;
+  z-index: 3000;
   display: flex;
   gap: 0.4rem;
+  pointer-events: auto;
 }
 
 .ar-overlay button {
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  touch-action: manipulation;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
 }
 
 body.viewer-role #host-btn,

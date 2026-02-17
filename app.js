@@ -25,7 +25,7 @@ const clearGalleryBtn = document.getElementById("clear-gallery-btn");
 
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
-const GALLERY_KEY = "spatial_lc_gallery_v2";
+const GALLERY_KEY = "spatial_lc_gallery_v3";
 
 let hydra;
 let webcam;
@@ -61,27 +61,27 @@ const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
 
 const defaultCode = `
-solid(0.01, 0.02, 0.04)
+solid(0.02, 0.01, 0.04)
   .layer(
-    osc(6, 0.04, 1.5)
-      .kaleid(5)
-      .rotate(() => time * 0.06)
-      .color(1.0, 0.44, 0.18)
+    osc(8, 0.03, 1.4)
+      .kaleid(7)
+      .rotate(() => time * 0.05)
+      .color(1, 0.2, 0.7)
       .luma(0.2)
   )
   .layer(
-    noise(3, 0.08)
-      .color(0.08, 0.82, 0.92)
+    noise(2.8, 0.07)
+      .color(0.1, 1.0, 0.9)
       .luma(0.45)
       .blend(solid(), 0.55)
   )
-  .modulate(osc(12, 0.03, 0.4), 0.05)
+  .modulate(osc(12, 0.02, 0.4), 0.08)
   .layer(
     src(s0)
-      .saturate(0.25)
-      .contrast(1.12)
+      .saturate(0.2)
+      .contrast(1.1)
       .luma(0.42)
-      .blend(solid(), 0.55)
+      .blend(solid(), 0.58)
   )
   .out(o0)
 
@@ -121,6 +121,7 @@ function setAppVisible(visible) {
 
 function showArOverlay(exitLabel, onExit) {
   overlayRoot.hidden = false;
+  overlayRoot.style.pointerEvents = "auto";
   overlayExitBtn.textContent = exitLabel;
   overlayExitBtn.onclick = onExit;
   overlayUndoBtn.onclick = () => removeLastPanel();
@@ -147,11 +148,10 @@ function debounce(fn, waitMs) {
 }
 
 function updateRoleUI() {
-  roleChip.textContent = `Role: ${role}`;
+  roleChip.textContent = role === "controller" ? "Role: controller (host)" : "Role: viewer (ar)";
   if (role === "viewer") {
     document.body.classList.add("viewer-role");
     codeEditor.readOnly = true;
-    arBtn.disabled = false;
   } else {
     document.body.classList.remove("viewer-role");
     codeEditor.readOnly = false;
@@ -169,11 +169,17 @@ function updateUrlState(nextRole, nextRoom) {
   history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
 }
 
-function broadcastToViewers(payload) {
+function broadcastToViewers(payload, excludeConn = null) {
   for (const conn of viewerConnections) {
-    if (conn.open) {
+    if (conn !== excludeConn && conn.open) {
       conn.send(payload);
     }
+  }
+}
+
+function sendToHost(payload) {
+  if (hostConn?.open) {
+    hostConn.send(payload);
   }
 }
 
@@ -200,6 +206,25 @@ const pushCodeDebounced = debounce(() => {
   }
 }, 220);
 
+function addGalleryItem(snapshot, code, mode, id = null, ts = Date.now()) {
+  const itemId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (galleryItems.some((entry) => entry.id === itemId)) {
+    return itemId;
+  }
+
+  galleryItems.unshift({
+    id: itemId,
+    snapshot,
+    code,
+    mode,
+    ts
+  });
+
+  saveGallery();
+  renderGallery();
+  return itemId;
+}
+
 function handleData(data, sourceConn = null) {
   if (!data || typeof data !== "object") {
     return;
@@ -214,6 +239,16 @@ function handleData(data, sourceConn = null) {
     applyHydraCode(data.code, true);
     if (role === "viewer") {
       setStatus("Remote code received.");
+    }
+    return;
+  }
+
+  if (data.type === "gallery-item" && data.item) {
+    const item = data.item;
+    addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts);
+
+    if (actingAsHost) {
+      broadcastToViewers({ type: "gallery-item", item }, sourceConn);
     }
   }
 }
@@ -270,7 +305,7 @@ function hostSession() {
 
   peer.on("open", () => {
     updateUrlState("controller", roomId);
-    setSyncStatus(`Controller session live: ${roomId}`);
+    setSyncStatus(`Host session live: ${roomId}`);
   });
 
   peer.on("connection", (conn) => {
@@ -306,7 +341,7 @@ function joinSession() {
 
     hostConn.on("data", (data) => handleData(data));
     hostConn.on("close", () => {
-      setSyncStatus("Disconnected from controller.", true);
+      setSyncStatus("Disconnected from host.", true);
       hostConn = null;
     });
     hostConn.on("error", (error) => {
@@ -319,22 +354,36 @@ function joinSession() {
   });
 }
 
-async function copyViewerLink() {
+function buildViewerUrl() {
   const room = (roomIdInput.value || "").trim();
-  if (!room) {
-    setSyncStatus("Start controller session first.", true);
-    return;
-  }
-
   const url = new URL(window.location.href);
   url.searchParams.set("role", "viewer");
   url.searchParams.set("room", room);
+  return { room, url: url.toString() };
+}
+
+async function shareViewerLink() {
+  const { room, url } = buildViewerUrl();
+  if (!room) {
+    setSyncStatus("Start host session first.", true);
+    return;
+  }
 
   try {
-    await navigator.clipboard.writeText(url.toString());
-    setSyncStatus("Viewer link copied.");
+    if (navigator.share) {
+      await navigator.share({
+        title: "Spatial Live Coding AR Viewer",
+        text: "Open this on your phone and tap Join as Viewer.",
+        url
+      });
+      setSyncStatus("Viewer link shared.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(url);
+    setSyncStatus("Viewer link copied. Send it to your phone via chat/mail.");
   } catch {
-    setSyncStatus(`Viewer link: ${url.toString()}`);
+    setSyncStatus(`Viewer link: ${url}`);
   }
 }
 
@@ -349,7 +398,7 @@ function loadGallery() {
 }
 
 function saveGallery() {
-  localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 80)));
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 120)));
 }
 
 function renderGallery() {
@@ -400,19 +449,6 @@ function renderGallery() {
   }
 }
 
-function addGalleryItem(snapshot, code, mode) {
-  galleryItems.unshift({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    snapshot,
-    code,
-    mode,
-    ts: Date.now()
-  });
-
-  saveGallery();
-  renderGallery();
-}
-
 function handleGalleryAction(event) {
   const target = event.target;
   if (!(target instanceof HTMLButtonElement)) {
@@ -452,39 +488,82 @@ function clearGallery() {
   renderGallery();
 }
 
-function captureSnapshotCanvas() {
-  const width = canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
-  const height = canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
+function createPanelEngine(code) {
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = 640;
+  offCanvas.height = 360;
+
+  try {
+    const synth = new Hydra({
+      canvas: offCanvas,
+      detectAudio: false,
+      width: 640,
+      height: 360,
+      makeGlobal: false
+    });
+
+    synth.s0.init({ src: webcam });
+    new Function("synth", `with(synth){${code}}`)(synth);
+
+    return { canvas: offCanvas, synth };
+  } catch {
+    return null;
+  }
+}
+
+function createPanelMaterial(code) {
+  const panelEngine = createPanelEngine(code);
+
+  if (panelEngine) {
+    const texture = new THREE.CanvasTexture(panelEngine.canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.DoubleSide
+    });
+
+    return { material, texture, panelEngine, snapshot: panelEngine.canvas.toDataURL("image/jpeg", 0.88) };
+  }
 
   const snap = document.createElement("canvas");
+  const width = canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
+  const height = canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
   snap.width = width;
   snap.height = height;
   const ctx = snap.getContext("2d");
   ctx.drawImage(canvas, 0, 0, width, height);
 
-  return {
-    snapCanvas: snap,
-    dataUrl: snap.toDataURL("image/jpeg", 0.9)
-  };
-}
-
-function createSnapshotMaterial() {
-  const { snapCanvas, dataUrl } = captureSnapshotCanvas();
-  const texture = new THREE.CanvasTexture(snapCanvas);
+  const texture = new THREE.CanvasTexture(snap);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    side: THREE.DoubleSide
-  });
-
-  return { material, texture, dataUrl };
+  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+  return { material, texture, panelEngine: null, snapshot: snap.toDataURL("image/jpeg", 0.88) };
 }
 
-function trackPlacedPanel(mesh, material, texture, scene) {
-  placedPanels.push({ mesh, material, texture, scene });
+function updatePlacedPanelTextures() {
+  for (const panel of placedPanels) {
+    panel.texture.needsUpdate = true;
+  }
+}
+
+function disposePanelEngine(panelEngine) {
+  if (!panelEngine) {
+    return;
+  }
+  try {
+    panelEngine.synth.hush();
+  } catch {
+    // ignore dispose errors
+  }
+}
+
+function trackPlacedPanel(entry) {
+  placedPanels.push(entry);
 }
 
 function removeLastPanel() {
@@ -498,12 +577,18 @@ function removeLastPanel() {
   panel.material.dispose();
   panel.texture.dispose();
   panel.mesh.geometry.dispose();
+  disposePanelEngine(panel.panelEngine);
   setStatus("Removed last placed panel.");
 }
 
 function clearPlacedPanels() {
   while (placedPanels.length > 0) {
-    removeLastPanel();
+    const panel = placedPanels.pop();
+    panel.scene.remove(panel.mesh);
+    panel.material.dispose();
+    panel.texture.dispose();
+    panel.mesh.geometry.dispose();
+    disposePanelEngine(panel.panelEngine);
   }
   setStatus("Cleared all placed panels.");
 }
@@ -630,7 +715,7 @@ function initArScene() {
   reticleGeo.rotateX(-Math.PI / 2);
   xrReticle = new THREE.Mesh(
     reticleGeo,
-    new THREE.MeshBasicMaterial({ color: 0x7de4d1 })
+    new THREE.MeshBasicMaterial({ color: 0x5de9ff })
   );
   xrReticle.matrixAutoUpdate = false;
   xrReticle.visible = false;
@@ -642,15 +727,31 @@ function initArScene() {
 }
 
 function addPanelAt(scene, geometry, cameraPos, worldPos) {
-  const { material, texture, dataUrl } = createSnapshotMaterial();
+  const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
+
   plane.position.copy(worldPos);
   plane.position.y += 0.35;
   plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
 
   scene.add(plane);
-  trackPlacedPanel(plane, material, texture, scene);
-  addGalleryItem(dataUrl, codeEditor.value, arMode);
+  trackPlacedPanel({ mesh: plane, material, texture, panelEngine, scene });
+
+  const item = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    snapshot,
+    code: codeEditor.value,
+    mode: arMode,
+    ts: Date.now()
+  };
+
+  addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts);
+
+  if (role === "viewer") {
+    sendToHost({ type: "gallery-item", item });
+  } else if (actingAsHost) {
+    broadcastToViewers({ type: "gallery-item", item });
+  }
 }
 
 function onArSelect() {
@@ -687,14 +788,18 @@ async function startArSession() {
 
   setAppVisible(false);
   showArOverlay("Exit AR", async () => {
-    const active = xrRenderer?.xr.getSession();
-    if (active) {
-      await active.end();
+    try {
+      const active = xrRenderer?.xr.getSession();
+      if (active) {
+        await active.end();
+      }
+    } catch {
+      onArSessionEnded();
     }
   });
 
   xrRenderer.setAnimationLoop(onArFrame);
-  setStatus("WebXR AR running. Tap to place frozen moments.");
+  setStatus("WebXR AR running. Tap to place animated moments.");
 }
 
 function onArFrame(_, frame) {
@@ -709,6 +814,7 @@ function onArFrame(_, frame) {
     }
   }
 
+  updatePlacedPanelTextures();
   xrRenderer.render(xrScene, xrCamera);
 }
 
@@ -778,8 +884,7 @@ function computeComfortDistance(planeWidth, viewportCoverage = 0.46) {
 function placeDesktopSeedPanel() {
   const direction = new THREE.Vector3(0, -0.05, -1).normalize();
   const distance = computeComfortDistance(1.2, 0.5);
-  const start = desktopCamera.position.clone();
-  const point = start.add(direction.multiplyScalar(distance));
+  const point = desktopCamera.position.clone().add(direction.multiplyScalar(distance));
   addPanelAt(desktopScene, desktopHydraGeometry, desktopCamera.position, point);
 }
 
@@ -817,6 +922,7 @@ function desktopAnimate() {
     return;
   }
 
+  updatePlacedPanelTextures();
   desktopRenderer.render(desktopScene, desktopCamera);
   desktopRaf = requestAnimationFrame(desktopAnimate);
 }
@@ -850,7 +956,7 @@ function startDesktopArSession() {
   }
 
   desktopAnimate();
-  setStatus("Desktop AR running. Click/tap to place frozen moments.");
+  setStatus("Desktop AR running. Click/tap to place animated moments.");
 }
 
 function stopDesktopArSession() {
@@ -927,7 +1033,13 @@ function bindEvents() {
     joinSession();
   });
 
-  copyLinkBtn.addEventListener("click", copyViewerLink);
+  copyLinkBtn.addEventListener("click", shareViewerLink);
+
+  overlayExitBtn.addEventListener("touchend", (event) => {
+    event.preventDefault();
+    overlayExitBtn.click();
+  });
+
   galleryGrid.addEventListener("click", handleGalleryAction);
   clearGalleryBtn.addEventListener("click", clearGallery);
   window.addEventListener("resize", onWindowResize);
@@ -966,7 +1078,7 @@ async function start() {
     if (role === "viewer") {
       setStatus("Viewer ready. Start AR and place moments.");
     } else {
-      setStatus("Controller ready. Live edits stream to viewers.");
+      setStatus("Host ready. Edit code here, place on viewer device.");
     }
   } catch (error) {
     setStatus(`Startup failed: ${error.message}`, true);
