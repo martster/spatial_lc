@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spatial Live Coding AR</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <h1>Spatial Live Coding AR</h1>
+        <p>Hydra + camera input for browser-based AR visual live coding.</p>
+      </header>
+
+      <section class="stage-wrapper" aria-label="Visual output stage">
+        <canvas id="hydra-canvas"></canvas>
+      </section>
+
+      <section class="controls" aria-label="Live coding controls">
+        <label for="hydra-code">Hydra Code</label>
+        <textarea id="hydra-code" spellcheck="false"></textarea>
+        <div class="buttons">
+          <button id="run-btn" type="button">Run</button>
+          <button id="reset-btn" type="button">Reset</button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/hydra-synth"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
