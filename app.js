@@ -65,6 +65,15 @@ let galleryItems = [];
 let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
+let lastOverlayActionTs = 0;
+const panelRunnerMount = document.createElement("div");
+panelRunnerMount.style.position = "fixed";
+panelRunnerMount.style.left = "-10000px";
+panelRunnerMount.style.top = "-10000px";
+panelRunnerMount.style.width = "1px";
+panelRunnerMount.style.height = "1px";
+panelRunnerMount.style.overflow = "hidden";
+document.body.appendChild(panelRunnerMount);
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -126,8 +135,6 @@ render(o0)
 `.trim()
 ];
 
-const fallbackGallerySnippets = [...hydraSnippets];
-
 function resolveRole() {
   const explicit = urlParams.get("role");
   if (explicit === "viewer" || explicit === "controller") {
@@ -162,6 +169,7 @@ function setAppVisible(visible) {
 function showArOverlay(exitLabel, onExit) {
   overlayRoot.hidden = false;
   overlayRoot.style.pointerEvents = "auto";
+  overlayRoot.addEventListener("beforexrselect", preventXrSelect);
   overlayExitBtn.textContent = exitLabel;
   overlayExitBtn.onclick = onExit;
   overlayUndoBtn.onclick = () => removeLastPanel();
@@ -170,9 +178,14 @@ function showArOverlay(exitLabel, onExit) {
 
 function hideArOverlay() {
   overlayRoot.hidden = true;
+  overlayRoot.removeEventListener("beforexrselect", preventXrSelect);
   overlayExitBtn.onclick = null;
   overlayUndoBtn.onclick = null;
   overlayClearBtn.onclick = null;
+}
+
+function preventXrSelect(event) {
+  event.preventDefault();
 }
 
 function randomRoomId() {
@@ -274,11 +287,14 @@ async function ensureGallerySnippetsLoaded() {
         return true;
       });
 
-    gallerySnippets = decoded.length > 0 ? decoded : fallbackGallerySnippets;
-    setSyncStatus(`Loaded ${gallerySnippets.length} Hydra gallery snippets.`);
+    gallerySnippets = decoded;
+    if (gallerySnippets.length === 0) {
+      throw new Error("no compatible snippets");
+    }
+    setSyncStatus(`Hydra gallery ready (${gallerySnippets.length} snippets).`);
   } catch {
-    gallerySnippets = fallbackGallerySnippets;
-    setSyncStatus("Gallery fetch failed, using local random snippets.", true);
+    gallerySnippets = [];
+    setSyncStatus("Hydra gallery unavailable right now.", true);
   }
 }
 
@@ -332,8 +348,12 @@ function applyHydraCode(code, fromRemote = false) {
 
 async function applyRandomSnippet() {
   await ensureGallerySnippetsLoaded();
-  const source = gallerySnippets.length > 0 ? gallerySnippets : fallbackGallerySnippets;
-  const next = source[Math.floor(Math.random() * source.length)];
+  if (gallerySnippets.length === 0) {
+    setStatus("Random failed: Hydra gallery could not be loaded.", true);
+    return;
+  }
+
+  const next = gallerySnippets[Math.floor(Math.random() * gallerySnippets.length)];
   codeEditor.value = next;
   applyHydraCode(next);
   if (actingAsHost) {
@@ -659,46 +679,81 @@ function clearGallery() {
   renderGallery();
 }
 
-function createPanelMaterial() {
-  const snap = captureHydraFrame();
+function executePanelCode(synth, code) {
+  if (typeof synth.eval === "function") {
+    synth.eval(code);
+    return;
+  }
 
-  const texture = new THREE.CanvasTexture(snap);
+  const runner = new Function(
+    "synth",
+    `
+const {src, osc, noise, voronoi, shape, gradient, solid, render, s0, s1, s2, s3, o0, o1, o2, o3} = synth;
+${code}
+`
+  );
+  runner(synth);
+}
+
+function createPanelEngine(code) {
+  const panelCanvas = document.createElement("canvas");
+  panelCanvas.width = 640;
+  panelCanvas.height = 360;
+  panelCanvas.style.width = "320px";
+  panelCanvas.style.height = "180px";
+  panelRunnerMount.appendChild(panelCanvas);
+
+  try {
+    const instance = new Hydra({
+      canvas: panelCanvas,
+      detectAudio: false,
+      width: 640,
+      height: 360,
+      makeGlobal: false
+    });
+    const synth = instance.synth || instance;
+    if (synth?.s0?.init) {
+      synth.s0.init({ src: webcam });
+    }
+    executePanelCode(synth, code);
+    return { canvas: panelCanvas, synth };
+  } catch (error) {
+    panelCanvas.remove();
+    console.warn("Dedicated panel runner failed:", error);
+    return null;
+  }
+}
+
+function createPanelMaterial(code) {
+  const panelEngine = createPanelEngine(code);
+  const snapshotFrame = captureHydraFrame();
+
+  if (panelEngine) {
+    const texture = new THREE.CanvasTexture(panelEngine.canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.DoubleSide
+    });
+
+    return {
+      material,
+      texture,
+      panelEngine,
+      snapshot: snapshotFrame.toDataURL("image/jpeg", 0.88)
+    };
+  }
+
+  const texture = new THREE.CanvasTexture(snapshotFrame);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uTex: { value: texture },
-      uTime: { value: 0 },
-      uSeed: { value: Math.random() * 100.0 }
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D uTex;
-      uniform float uTime;
-      uniform float uSeed;
-      varying vec2 vUv;
-
-      void main() {
-        vec2 uv = vUv;
-        float waveA = sin((uv.y * 16.0) + uTime * 1.6 + uSeed) * 0.007;
-        float waveB = cos((uv.x * 14.0) - uTime * 1.2 + uSeed * 1.7) * 0.006;
-        uv.x += waveA;
-        uv.y += waveB;
-
-        vec4 col = texture2D(uTex, uv);
-        float pulse = 0.05 * sin(uTime * 1.8 + uSeed);
-        col.rgb += pulse;
-        gl_FragColor = col;
-      }
-    `,
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
     side: THREE.DoubleSide
   });
 
@@ -706,24 +761,28 @@ function createPanelMaterial() {
     material,
     texture,
     panelEngine: null,
-    animateUniform: true,
-    snapshot: snap.toDataURL("image/jpeg", 0.88)
+    snapshot: snapshotFrame.toDataURL("image/jpeg", 0.88)
   };
 }
 
-function updatePlacedPanelTextures(elapsedSeconds) {
+function updatePlacedPanelTextures() {
   for (const panel of placedPanels) {
     if (panel.texture) {
-      panel.texture.needsUpdate = false;
-    }
-    if (panel.animateUniform && panel.material.uniforms?.uTime) {
-      panel.material.uniforms.uTime.value = elapsedSeconds;
+      panel.texture.needsUpdate = true;
     }
   }
 }
 
 function disposePanelEngine(panelEngine) {
-  // no-op; kept for compatibility with older entries
+  if (!panelEngine) {
+    return;
+  }
+  try {
+    panelEngine.synth?.hush?.();
+  } catch {
+    // ignore cleanup errors
+  }
+  panelEngine.canvas?.remove();
 }
 
 function trackPlacedPanel(entry) {
@@ -891,7 +950,7 @@ function initArScene() {
 }
 
 function addPanelAt(scene, geometry, cameraPos, worldPos) {
-  const { material, texture, panelEngine, snapshot, animateUniform } = createPanelMaterial();
+  const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
 
   plane.position.copy(worldPos);
@@ -904,8 +963,7 @@ function addPanelAt(scene, geometry, cameraPos, worldPos) {
     material,
     texture,
     panelEngine,
-    scene,
-    animateUniform: !!animateUniform
+    scene
   });
 
   const item = {
@@ -985,7 +1043,7 @@ function onArFrame(_, frame) {
     }
   }
 
-  updatePlacedPanelTextures(performance.now() * 0.001);
+  updatePlacedPanelTextures();
   xrRenderer.render(xrScene, xrCamera);
 }
 
@@ -1093,7 +1151,7 @@ function desktopAnimate() {
     return;
   }
 
-  updatePlacedPanelTextures(performance.now() * 0.001);
+  updatePlacedPanelTextures();
   desktopRenderer.render(desktopScene, desktopCamera);
   desktopRaf = requestAnimationFrame(desktopAnimate);
 }
@@ -1210,32 +1268,26 @@ function bindEvents() {
   qrLinkBtn.addEventListener("click", showViewerQr);
   qrCloseBtn.addEventListener("click", () => qrDialog.close());
 
-  overlayExitBtn.addEventListener("touchend", (event) => {
-    event.preventDefault();
-    overlayExitBtn.click();
-  });
-  overlayUndoBtn.addEventListener("touchend", (event) => {
-    event.preventDefault();
-    removeLastPanel();
-  });
-  overlayClearBtn.addEventListener("touchend", (event) => {
-    event.preventDefault();
-    clearPlacedPanels();
-  });
-  overlayUndoBtn.addEventListener("pointerup", (event) => {
-    if (event.pointerType !== "touch") {
-      return;
-    }
-    event.preventDefault();
-    removeLastPanel();
-  });
-  overlayClearBtn.addEventListener("pointerup", (event) => {
-    if (event.pointerType !== "touch") {
-      return;
-    }
-    event.preventDefault();
-    clearPlacedPanels();
-  });
+  const bindOverlayAction = (btn, action) => {
+    btn.addEventListener(
+      "pointerdown",
+      (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const now = Date.now();
+        if (now - lastOverlayActionTs < 120) {
+          return;
+        }
+        lastOverlayActionTs = now;
+        action();
+      },
+      { passive: false }
+    );
+  };
+
+  bindOverlayAction(overlayExitBtn, () => overlayExitBtn.onclick?.());
+  bindOverlayAction(overlayUndoBtn, removeLastPanel);
+  bindOverlayAction(overlayClearBtn, clearPlacedPanels);
 
   galleryGrid.addEventListener("click", handleGalleryAction);
   clearGalleryBtn.addEventListener("click", clearGallery);
