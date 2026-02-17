@@ -62,6 +62,9 @@ const viewerConnections = new Set();
 
 const placedPanels = [];
 let galleryItems = [];
+let gallerySnippets = [];
+let gallerySnippetsLoaded = false;
+let lastGoodFrameCanvas = null;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -123,6 +126,8 @@ render(o0)
 `.trim()
 ];
 
+const fallbackGallerySnippets = [...hydraSnippets];
+
 function resolveRole() {
   const explicit = urlParams.get("role");
   if (explicit === "viewer" || explicit === "controller") {
@@ -182,6 +187,82 @@ function debounce(fn, waitMs) {
   };
 }
 
+function cloneCanvas(srcCanvas) {
+  const out = document.createElement("canvas");
+  out.width = srcCanvas.width;
+  out.height = srcCanvas.height;
+  const ctx = out.getContext("2d");
+  ctx.drawImage(srcCanvas, 0, 0, out.width, out.height);
+  return out;
+}
+
+function estimateLuma(canvasEl) {
+  const ctx = canvasEl.getContext("2d");
+  if (!ctx) {
+    return 0;
+  }
+
+  const sampleW = Math.min(48, canvasEl.width || 48);
+  const sampleH = Math.min(27, canvasEl.height || 27);
+  const img = ctx.getImageData(0, 0, sampleW, sampleH).data;
+  let sum = 0;
+  const pxCount = sampleW * sampleH;
+  for (let i = 0; i < img.length; i += 4) {
+    sum += (img[i] + img[i + 1] + img[i + 2]) / 3;
+  }
+  return pxCount > 0 ? sum / pxCount : 0;
+}
+
+function captureHydraFrame() {
+  const snap = document.createElement("canvas");
+  const width =
+    canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
+  const height =
+    canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
+  snap.width = width;
+  snap.height = height;
+  const ctx = snap.getContext("2d");
+  ctx.drawImage(canvas, 0, 0, width, height);
+
+  const luma = estimateLuma(snap);
+  if (luma > 4) {
+    lastGoodFrameCanvas = cloneCanvas(snap);
+    return snap;
+  }
+
+  if (lastGoodFrameCanvas) {
+    return cloneCanvas(lastGoodFrameCanvas);
+  }
+
+  return snap;
+}
+
+async function ensureGallerySnippetsLoaded() {
+  if (gallerySnippetsLoaded) {
+    return;
+  }
+
+  gallerySnippetsLoaded = true;
+  const remoteUrl =
+    "https://raw.githubusercontent.com/hydra-synth/hydra/main/examples/live-coding.json";
+
+  try {
+    const res = await fetch(remoteUrl, { mode: "cors" });
+    if (!res.ok) {
+      throw new Error("gallery fetch failed");
+    }
+    const data = await res.json();
+    const snippets = Array.isArray(data)
+      ? data
+          .map((entry) => (typeof entry === "string" ? entry : entry?.code))
+          .filter((code) => typeof code === "string" && code.trim().length > 0)
+      : [];
+    gallerySnippets = snippets.length > 0 ? snippets : fallbackGallerySnippets;
+  } catch {
+    gallerySnippets = fallbackGallerySnippets;
+  }
+}
+
 function updateRoleUI() {
   roleChip.textContent = role === "controller" ? "Role: controller (host)" : "Role: viewer (ar)";
   if (role === "viewer") {
@@ -230,8 +311,10 @@ function applyHydraCode(code, fromRemote = false) {
   }
 }
 
-function applyRandomSnippet() {
-  const next = hydraSnippets[Math.floor(Math.random() * hydraSnippets.length)];
+async function applyRandomSnippet() {
+  await ensureGallerySnippetsLoaded();
+  const source = gallerySnippets.length > 0 ? gallerySnippets : fallbackGallerySnippets;
+  const next = source[Math.floor(Math.random() * source.length)];
   codeEditor.value = next;
   applyHydraCode(next);
   if (actingAsHost) {
@@ -558,13 +641,7 @@ function clearGallery() {
 }
 
 function createPanelMaterial() {
-  const snap = document.createElement("canvas");
-  const width = canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
-  const height = canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
-  snap.width = width;
-  snap.height = height;
-  const ctx = snap.getContext("2d");
-  ctx.drawImage(canvas, 0, 0, width, height);
+  const snap = captureHydraFrame();
 
   const texture = new THREE.CanvasTexture(snap);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -1117,6 +1194,14 @@ function bindEvents() {
   overlayExitBtn.addEventListener("touchend", (event) => {
     event.preventDefault();
     overlayExitBtn.click();
+  });
+  overlayUndoBtn.addEventListener("touchend", (event) => {
+    event.preventDefault();
+    overlayUndoBtn.click();
+  });
+  overlayClearBtn.addEventListener("touchend", (event) => {
+    event.preventDefault();
+    overlayClearBtn.click();
   });
 
   galleryGrid.addEventListener("click", handleGalleryAction);
