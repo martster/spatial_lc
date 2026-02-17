@@ -187,6 +187,10 @@ button#random-btn {
   background: #ffd6ff;
 }
 
+button#surface-btn {
+  background: #b7ffe3;
+}
+
 button#host-btn {
   background: var(--lime);
 }

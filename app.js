@@ -5,6 +5,7 @@ const codeEditor = document.getElementById("hydra-code");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
+const surfaceBtn = document.getElementById("surface-btn");
 const arBtn = document.getElementById("ar-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
@@ -68,6 +69,7 @@ let lastGoodFrameCanvas = null;
 let lastOverlayActionTs = 0;
 let currentExitAction = null;
 let currentSketchId = null;
+let surfaceMode = true;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -162,6 +164,10 @@ function resolveRole() {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+}
+
+function updateSurfaceButtonUi() {
+  surfaceBtn.textContent = surfaceMode ? "Surface: On" : "Surface: Off";
 }
 
 function setSyncStatus(message, isError = false) {
@@ -984,13 +990,24 @@ function initArScene() {
   xrScene.add(xrController);
 }
 
-function addPanelAt(scene, geometry, cameraPos, worldPos) {
+function addPanelAt(scene, geometry, cameraPos, worldPos, surfaceQuaternion = null) {
   const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
 
   plane.position.copy(worldPos);
-  plane.position.y += 0.35;
-  plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
+  if (surfaceMode && surfaceQuaternion) {
+    const correction = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(-Math.PI / 2, 0, 0)
+    );
+    plane.quaternion.copy(surfaceQuaternion).multiply(correction);
+    const surfaceNormal = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(plane.quaternion)
+      .normalize();
+    plane.position.add(surfaceNormal.multiplyScalar(0.01));
+  } else {
+    plane.position.y += 0.35;
+    plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
+  }
 
   scene.add(plane);
   trackPlacedPanel({
@@ -1042,8 +1059,10 @@ function onArSelect() {
 
   const worldPos = new THREE.Vector3();
   worldPos.setFromMatrixPosition(xrReticle.matrix);
+  const surfaceQuaternion = new THREE.Quaternion();
+  xrReticle.matrix.decompose(new THREE.Vector3(), surfaceQuaternion, new THREE.Vector3());
 
-  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos);
+  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos, surfaceQuaternion);
 }
 
 async function startArSession() {
@@ -1293,6 +1312,11 @@ function bindEvents() {
   });
 
   randomBtn.addEventListener("click", applyRandomSnippet);
+  surfaceBtn.addEventListener("click", () => {
+    surfaceMode = !surfaceMode;
+    updateSurfaceButtonUi();
+    setStatus(surfaceMode ? "Surface placement enabled." : "Billboard placement enabled.");
+  });
 
   codeEditor.addEventListener("input", () => {
     currentSketchId = null;
@@ -1367,6 +1391,7 @@ async function start() {
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
+  updateSurfaceButtonUi();
   bindEvents();
   codeEditor.value = defaultCode;
 
