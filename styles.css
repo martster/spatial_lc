@@ -95,6 +95,15 @@ button#reset-btn {
   background: #f8bd4f;
 }
 
+button#ar-btn {
+  background: #7ee3ff;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 #status {
   margin: 0;
   min-height: 1.4rem;
