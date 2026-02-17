@@ -243,8 +243,7 @@ async function ensureGallerySnippetsLoaded() {
   }
 
   gallerySnippetsLoaded = true;
-  const remoteUrl =
-    "https://raw.githubusercontent.com/hydra-synth/hydra/main/examples/live-coding.json";
+  const remoteUrl = "https://api.hydrasynth.xyz/sketches";
 
   try {
     const res = await fetch(remoteUrl, { mode: "cors" });
@@ -252,14 +251,34 @@ async function ensureGallerySnippetsLoaded() {
       throw new Error("gallery fetch failed");
     }
     const data = await res.json();
-    const snippets = Array.isArray(data)
-      ? data
-          .map((entry) => (typeof entry === "string" ? entry : entry?.code))
-          .filter((code) => typeof code === "string" && code.trim().length > 0)
-      : [];
-    gallerySnippets = snippets.length > 0 ? snippets : fallbackGallerySnippets;
+    const snippets = Array.isArray(data) ? data : [];
+    const decoded = snippets
+      .map((entry) => entry?.code)
+      .filter((code) => typeof code === "string" && code.length > 0)
+      .map((code) => {
+        try {
+          const raw = atob(code);
+          return decodeURIComponent(raw);
+        } catch {
+          return "";
+        }
+      })
+      .filter((code) => {
+        const normalized = code.toLowerCase();
+        if (!normalized.includes(".out(") && !normalized.includes(".out()")) {
+          return false;
+        }
+        if (normalized.includes("src(s0)") || normalized.includes("initcam")) {
+          return false;
+        }
+        return true;
+      });
+
+    gallerySnippets = decoded.length > 0 ? decoded : fallbackGallerySnippets;
+    setSyncStatus(`Loaded ${gallerySnippets.length} Hydra gallery snippets.`);
   } catch {
     gallerySnippets = fallbackGallerySnippets;
+    setSyncStatus("Gallery fetch failed, using local random snippets.", true);
   }
 }
 
@@ -1197,11 +1216,25 @@ function bindEvents() {
   });
   overlayUndoBtn.addEventListener("touchend", (event) => {
     event.preventDefault();
-    overlayUndoBtn.click();
+    removeLastPanel();
   });
   overlayClearBtn.addEventListener("touchend", (event) => {
     event.preventDefault();
-    overlayClearBtn.click();
+    clearPlacedPanels();
+  });
+  overlayUndoBtn.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    event.preventDefault();
+    removeLastPanel();
+  });
+  overlayClearBtn.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    event.preventDefault();
+    clearPlacedPanels();
   });
 
   galleryGrid.addEventListener("click", handleGalleryAction);
