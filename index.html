@@ -10,8 +10,19 @@
     <main class="app">
       <header class="topbar">
         <h1>Spatial Live Coding AR</h1>
-        <p>Hydra + camera input for browser-based AR visual live coding.</p>
+        <p>Site-specific visuals: edit on laptop, perform in spatial AR.</p>
       </header>
+
+      <section class="sync-panel" aria-label="Live sync session controls">
+        <p id="role-chip" class="chip">Role: solo</p>
+        <div class="sync-row">
+          <input id="room-id" type="text" placeholder="room id (e.g. berlin-01)" />
+          <button id="host-btn" type="button">Host</button>
+          <button id="join-btn" type="button">Join</button>
+          <button id="copy-link-btn" type="button">Copy Viewer Link</button>
+        </div>
+        <p id="sync-status" aria-live="polite">No remote session.</p>
+      </section>
 
       <section class="stage-wrapper" aria-label="Visual output stage">
         <canvas id="hydra-canvas"></canvas>
@@ -29,6 +40,7 @@
       </section>
     </main>
 
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/hydra-synth"></script>
     <script src="app.js" type="module"></script>
   </body>

@@ -8,12 +8,20 @@ const arBtn = document.getElementById("ar-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
 
+const roleChip = document.getElementById("role-chip");
+const roomIdInput = document.getElementById("room-id");
+const hostBtn = document.getElementById("host-btn");
+const joinBtn = document.getElementById("join-btn");
+const copyLinkBtn = document.getElementById("copy-link-btn");
+const syncStatusEl = document.getElementById("sync-status");
+
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
 
 let hydra;
 let webcam;
 let arMode = "desktop";
+let overlayExitBtn;
 
 let xrRenderer;
 let xrScene;
@@ -33,27 +41,64 @@ let desktopHydraGeometry;
 let desktopActive = false;
 let desktopRaf = 0;
 let desktopHasSeedPanel = false;
-let overlayExitBtn;
+
+let peer;
+let roomId = "";
+let actingAsHost = false;
+let hostConn = null;
+const viewerConnections = new Set();
+
+const urlParams = new URLSearchParams(window.location.search);
+let role = resolveRole();
 
 const defaultCode = `
-// Camera source comes from s0.
-src(s0)
-  .colorama(() => 0.002 + Math.sin(time * 0.4) * 0.002)
-  .modulate(noise(4, 0.1), 0.07)
+solid(0.02, 0.02, 0.05)
   .layer(
-    osc(16, 0.02, 0.7)
-      .thresh(0.65)
-      .color(0.2, 0.9, 0.8)
-      .luma(0.3)
+    osc(7, 0.03, 1.2)
+      .kaleid(5)
+      .rotate(() => time * 0.04)
+      .color(0.98, 0.36, 0.2)
+      .luma(0.22)
+  )
+  .modulate(noise(3.5, 0.08), 0.16)
+  .layer(
+    src(s0)
+      .saturate(0.24)
+      .contrast(1.2)
+      .luma(0.35)
+      .color(0.3, 0.72, 1.0)
+      .blend(solid(), 0.45)
   )
   .out(o0)
 
 render(o0)
 `.trim();
 
+function resolveRole() {
+  const explicit = urlParams.get("role");
+  if (explicit === "viewer" || explicit === "controller") {
+    return explicit;
+  }
+
+  const isSmallTouch =
+    (window.matchMedia("(max-width: 860px)").matches && navigator.maxTouchPoints > 0) ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+
+  if (urlParams.get("room") && isSmallTouch) {
+    return "viewer";
+  }
+
+  return "controller";
+}
+
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+}
+
+function setSyncStatus(message, isError = false) {
+  syncStatusEl.textContent = message;
+  syncStatusEl.classList.toggle("error", isError);
 }
 
 function ensureOverlayExitButton() {
@@ -91,6 +136,215 @@ function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
 }
 
+function randomRoomId() {
+  return `spatial-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function debounce(fn, waitMs) {
+  let timer = 0;
+  return (...args) => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => fn(...args), waitMs);
+  };
+}
+
+function updateRoleUI() {
+  roleChip.textContent = `Role: ${role}`;
+  if (role === "viewer") {
+    document.body.classList.add("viewer-role");
+    codeEditor.readOnly = true;
+  } else {
+    document.body.classList.remove("viewer-role");
+    codeEditor.readOnly = false;
+  }
+}
+
+function updateUrlState(nextRole, nextRoom) {
+  const params = new URLSearchParams(window.location.search);
+  params.set("role", nextRole);
+  if (nextRoom) {
+    params.set("room", nextRoom);
+  } else {
+    params.delete("room");
+  }
+  history.replaceState({}, "", `${location.pathname}?${params.toString()}`);
+}
+
+function broadcastToViewers(payload) {
+  for (const conn of viewerConnections) {
+    if (conn.open) {
+      conn.send(payload);
+    }
+  }
+}
+
+function sendToHost(payload) {
+  if (hostConn?.open) {
+    hostConn.send(payload);
+  }
+}
+
+function applyHydraCode(code, fromRemote = false) {
+  codeEditor.value = code;
+  try {
+    new Function(codeEditor.value)();
+    if (!fromRemote) {
+      setStatus("Script running.");
+    }
+  } catch (error) {
+    setStatus(`Error: ${error.message}`, true);
+  }
+}
+
+const pushCodeDebounced = debounce(() => {
+  if (role !== "controller") {
+    return;
+  }
+
+  applyHydraCode(codeEditor.value);
+  if (actingAsHost) {
+    broadcastToViewers({ type: "code", code: codeEditor.value });
+  }
+}, 220);
+
+function handleData(data, sourceConn = null) {
+  if (!data || typeof data !== "object") {
+    return;
+  }
+
+  if (data.type === "request-sync" && actingAsHost) {
+    sourceConn?.send({ type: "code", code: codeEditor.value });
+    return;
+  }
+
+  if (data.type === "code" && typeof data.code === "string") {
+    applyHydraCode(data.code, true);
+    if (role === "viewer") {
+      setStatus("Remote code received.");
+    }
+  }
+}
+
+function closePeerState() {
+  if (hostConn) {
+    hostConn.close();
+    hostConn = null;
+  }
+
+  for (const conn of viewerConnections) {
+    conn.close();
+  }
+  viewerConnections.clear();
+
+  if (peer) {
+    peer.destroy();
+    peer = null;
+  }
+
+  actingAsHost = false;
+}
+
+function ensurePeerJsAvailable() {
+  if (!window.Peer) {
+    throw new Error("PeerJS is unavailable in this browser.");
+  }
+}
+
+function attachViewerConnection(conn) {
+  viewerConnections.add(conn);
+  setSyncStatus(`Viewer connected (${viewerConnections.size}).`);
+
+  conn.on("data", (data) => handleData(data, conn));
+  conn.on("close", () => {
+    viewerConnections.delete(conn);
+    setSyncStatus(`Viewer disconnected (${viewerConnections.size}).`);
+  });
+  conn.on("error", (error) => {
+    setSyncStatus(`Viewer connection error: ${error.message}`, true);
+  });
+}
+
+function hostSession() {
+  ensurePeerJsAvailable();
+  const desiredRoom = (roomIdInput.value || "").trim() || randomRoomId();
+
+  closePeerState();
+  roomId = desiredRoom;
+  roomIdInput.value = roomId;
+  actingAsHost = true;
+
+  peer = new window.Peer(roomId);
+
+  peer.on("open", () => {
+    updateUrlState("controller", roomId);
+    setSyncStatus(`Hosting room: ${roomId}`);
+  });
+
+  peer.on("connection", (conn) => {
+    attachViewerConnection(conn);
+  });
+
+  peer.on("error", (error) => {
+    setSyncStatus(`Host error: ${error.message}`, true);
+  });
+}
+
+function joinSession() {
+  ensurePeerJsAvailable();
+  const targetRoom = (roomIdInput.value || "").trim();
+  if (!targetRoom) {
+    setSyncStatus("Enter a room id first.", true);
+    return;
+  }
+
+  closePeerState();
+  roomId = targetRoom;
+  actingAsHost = false;
+
+  peer = new window.Peer();
+  peer.on("open", () => {
+    hostConn = peer.connect(roomId, { reliable: true });
+
+    hostConn.on("open", () => {
+      updateUrlState("viewer", roomId);
+      setSyncStatus(`Joined room: ${roomId}`);
+      hostConn.send({ type: "request-sync" });
+    });
+
+    hostConn.on("data", (data) => handleData(data));
+    hostConn.on("close", () => {
+      setSyncStatus("Disconnected from host.", true);
+      hostConn = null;
+    });
+    hostConn.on("error", (error) => {
+      setSyncStatus(`Join error: ${error.message}`, true);
+    });
+  });
+
+  peer.on("error", (error) => {
+    setSyncStatus(`Peer error: ${error.message}`, true);
+  });
+}
+
+async function copyViewerLink() {
+  const room = (roomIdInput.value || "").trim();
+  if (!room) {
+    setSyncStatus("Host first, then copy the viewer link.", true);
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("role", "viewer");
+  url.searchParams.set("room", room);
+
+  try {
+    await navigator.clipboard.writeText(url.toString());
+    setSyncStatus("Viewer link copied.");
+  } catch {
+    setSyncStatus(`Viewer link: ${url.toString()}`);
+  }
+}
+
 async function setupCamera() {
   webcam = document.createElement("video");
   webcam.autoplay = true;
@@ -98,9 +352,7 @@ async function setupCamera() {
   webcam.playsInline = true;
 
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: { ideal: "environment" }
-    },
+    video: { facingMode: { ideal: "environment" } },
     audio: false
   });
 
@@ -117,37 +369,6 @@ function initHydra() {
   });
 
   s0.init({ src: webcam });
-}
-
-function runHydraCode() {
-  try {
-    new Function(codeEditor.value)();
-    setStatus("Script running.");
-  } catch (error) {
-    setStatus(`Error: ${error.message}`, true);
-  }
-}
-
-function bindEvents() {
-  runBtn.addEventListener("click", runHydraCode);
-  resetBtn.addEventListener("click", () => {
-    codeEditor.value = defaultCode;
-    runHydraCode();
-  });
-  arBtn.addEventListener("click", startArExperience);
-  window.addEventListener("resize", onWindowResize);
-}
-
-function onWindowResize() {
-  if (xrRenderer) {
-    xrRenderer.setSize(window.innerWidth, window.innerHeight);
-  }
-
-  if (desktopRenderer && desktopCamera) {
-    desktopCamera.aspect = window.innerWidth / window.innerHeight;
-    desktopCamera.updateProjectionMatrix();
-    desktopRenderer.setSize(window.innerWidth, window.innerHeight);
-  }
 }
 
 function isQuickLookCapable() {
@@ -221,7 +442,7 @@ function openQuickLook() {
   link.click();
   link.remove();
 
-  setStatus("Opened iOS Quick Look. Hydra stays available in the web view.");
+  setStatus("Opened iOS Quick Look.");
 }
 
 function initArScene() {
@@ -254,7 +475,7 @@ function initArScene() {
   reticleGeo.rotateX(-Math.PI / 2);
   xrReticle = new THREE.Mesh(
     reticleGeo,
-    new THREE.MeshBasicMaterial({ color: 0x41c7b9 })
+    new THREE.MeshBasicMaterial({ color: 0x7de4d1 })
   );
   xrReticle.matrixAutoUpdate = false;
   xrReticle.visible = false;
@@ -274,6 +495,7 @@ function onArSelect() {
     map: xrHydraTexture,
     side: THREE.DoubleSide
   });
+
   const plane = new THREE.Mesh(xrHydraGeometry, material);
 
   const cameraPos = new THREE.Vector3();
@@ -305,14 +527,13 @@ async function startArSession() {
     }
   });
   document.body.appendChild(xrRenderer.domElement);
-  arBtn.textContent = "Exit AR";
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
   xrRefSpace = await session.requestReferenceSpace("local-floor");
 
   xrRenderer.setAnimationLoop(onArFrame);
-  setStatus("WebXR AR running. Move device, then tap to place visuals.");
+  setStatus("WebXR AR running. Tap to place Hydra panels.");
 }
 
 function onArFrame(_, frame) {
@@ -348,7 +569,6 @@ function onArSessionEnded() {
     xrReticle.visible = false;
   }
 
-  arBtn.textContent = "Start AR";
   hideOverlayExitButton();
   setAppVisible(true);
   setStatus("WebXR AR session ended.");
@@ -383,9 +603,9 @@ function initDesktopArScene() {
     0.01,
     100
   );
-  desktopCamera.position.set(0, 1.4, 0.2);
+  desktopCamera.position.set(0, 1.45, 0.1);
 
-  const ambient = new THREE.HemisphereLight(0xffffff, 0x222222, 1.15);
+  const ambient = new THREE.HemisphereLight(0xffffff, 0x2d2d2d, 1.1);
   desktopScene.add(ambient);
 
   desktopHydraTexture = new THREE.CanvasTexture(canvas);
@@ -395,6 +615,12 @@ function initDesktopArScene() {
 
   desktopHydraGeometry = new THREE.PlaneGeometry(1.2, 0.675);
   desktopRenderer.domElement.addEventListener("pointerdown", onDesktopPointerDown);
+}
+
+function computeComfortDistance(planeWidth, viewportCoverage = 0.42) {
+  const fovRad = THREE.MathUtils.degToRad(desktopCamera.fov);
+  const visibleWidthAtUnitDistance = 2 * Math.tan(fovRad / 2) * desktopCamera.aspect;
+  return planeWidth / (visibleWidthAtUnitDistance * viewportCoverage);
 }
 
 function placeDesktopPlane(worldPoint) {
@@ -408,6 +634,14 @@ function placeDesktopPlane(worldPoint) {
   plane.position.y += 0.35;
   plane.lookAt(desktopCamera.position.x, plane.position.y, desktopCamera.position.z);
   desktopScene.add(plane);
+}
+
+function placeDesktopSeedPanel() {
+  const direction = new THREE.Vector3(0, -0.05, -1).normalize();
+  const distance = computeComfortDistance(1.2, 0.5);
+  const start = desktopCamera.position.clone();
+  const point = start.add(direction.multiplyScalar(distance));
+  placeDesktopPlane(point);
 }
 
 function onDesktopPointerDown(event) {
@@ -473,19 +707,15 @@ function startDesktopArSession() {
 
   desktopActive = true;
   setAppVisible(false);
-  showOverlayExitButton("Exit Desktop AR", () => {
-    toggleDesktopArSession();
-  });
-  arBtn.textContent = "Exit Desktop AR";
+  showOverlayExitButton("Exit Desktop AR", () => toggleDesktopArSession());
 
   if (!desktopHasSeedPanel) {
-    placeDesktopPlane(new THREE.Vector3(0, 0, -1.8));
+    placeDesktopSeedPanel();
     desktopHasSeedPanel = true;
   }
 
   desktopAnimate();
-
-  setStatus("Desktop AR running. Click/tap to place more Hydra panels.");
+  setStatus("Desktop AR running. Click/tap to place more panels.");
 }
 
 function stopDesktopArSession() {
@@ -500,7 +730,6 @@ function stopDesktopArSession() {
     webcam.parentNode.removeChild(webcam);
   }
 
-  arBtn.textContent = "Start Desktop AR";
   hideOverlayExitButton();
   setAppVisible(true);
   setStatus("Desktop AR session ended.");
@@ -515,27 +744,90 @@ function toggleDesktopArSession() {
   startDesktopArSession();
 }
 
+function onWindowResize() {
+  if (xrRenderer) {
+    xrRenderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  if (desktopRenderer && desktopCamera) {
+    desktopCamera.aspect = window.innerWidth / window.innerHeight;
+    desktopCamera.updateProjectionMatrix();
+    desktopRenderer.setSize(window.innerWidth, window.innerHeight);
+  }
+}
+
+function bindEvents() {
+  runBtn.addEventListener("click", () => {
+    applyHydraCode(codeEditor.value);
+    if (actingAsHost) {
+      broadcastToViewers({ type: "code", code: codeEditor.value });
+    }
+  });
+
+  resetBtn.addEventListener("click", () => {
+    codeEditor.value = defaultCode;
+    applyHydraCode(codeEditor.value);
+    if (actingAsHost) {
+      broadcastToViewers({ type: "code", code: codeEditor.value });
+    }
+  });
+
+  codeEditor.addEventListener("input", () => {
+    if (role === "controller") {
+      pushCodeDebounced();
+    }
+  });
+
+  arBtn.addEventListener("click", startArExperience);
+
+  hostBtn.addEventListener("click", () => {
+    role = "controller";
+    updateRoleUI();
+    hostSession();
+  });
+
+  joinBtn.addEventListener("click", () => {
+    role = "viewer";
+    updateRoleUI();
+    joinSession();
+  });
+
+  copyLinkBtn.addEventListener("click", copyViewerLink);
+  window.addEventListener("resize", onWindowResize);
+}
+
+function autoSetupSession() {
+  roomId = urlParams.get("room") || randomRoomId();
+  roomIdInput.value = roomId;
+
+  if (role === "viewer") {
+    joinSession();
+  } else {
+    hostSession();
+  }
+}
+
 async function start() {
   if (!navigator.mediaDevices?.getUserMedia) {
     setStatus("Camera API is not supported in this browser.", true);
     return;
   }
 
+  updateRoleUI();
+  bindEvents();
   codeEditor.value = defaultCode;
 
   try {
     await setupCamera();
     initHydra();
     await detectArMode();
-    bindEvents();
-    runHydraCode();
+    applyHydraCode(codeEditor.value);
+    autoSetupSession();
 
-    if (arMode === "webxr") {
-      setStatus("Camera ready. WebXR AR detected. Press Start AR.");
-    } else if (arMode === "quicklook") {
-      setStatus("Camera ready. iOS Quick Look detected.");
+    if (role === "viewer") {
+      setStatus("Viewer mode ready. Start AR and receive live code.");
     } else {
-      setStatus("Camera ready. Desktop AR fallback detected.");
+      setStatus("Controller mode ready. Edits stream live to viewers.");
     }
   } catch (error) {
     setStatus(`Startup failed: ${error.message}`, true);
