@@ -282,6 +282,7 @@ button:disabled {
   display: flex;
   gap: 0.4rem;
   pointer-events: auto;
+  touch-action: none;
 }
 
 .ar-overlay button {

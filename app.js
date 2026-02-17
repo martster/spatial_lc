@@ -66,6 +66,7 @@ let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
 let lastOverlayActionTs = 0;
+let currentExitAction = null;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -74,6 +75,10 @@ panelRunnerMount.style.width = "1px";
 panelRunnerMount.style.height = "1px";
 panelRunnerMount.style.overflow = "hidden";
 document.body.appendChild(panelRunnerMount);
+const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+const PANEL_RUNNER_WIDTH = isLikelyMobile ? 320 : 480;
+const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 180 : 270;
+const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -170,8 +175,9 @@ function showArOverlay(exitLabel, onExit) {
   overlayRoot.hidden = false;
   overlayRoot.style.pointerEvents = "auto";
   overlayRoot.addEventListener("beforexrselect", preventXrSelect);
+  currentExitAction = onExit;
   overlayExitBtn.textContent = exitLabel;
-  overlayExitBtn.onclick = onExit;
+  overlayExitBtn.onclick = () => currentExitAction?.();
   overlayUndoBtn.onclick = () => removeLastPanel();
   overlayClearBtn.onclick = () => clearPlacedPanels();
 }
@@ -179,6 +185,7 @@ function showArOverlay(exitLabel, onExit) {
 function hideArOverlay() {
   overlayRoot.hidden = true;
   overlayRoot.removeEventListener("beforexrselect", preventXrSelect);
+  currentExitAction = null;
   overlayExitBtn.onclick = null;
   overlayUndoBtn.onclick = null;
   overlayClearBtn.onclick = null;
@@ -266,18 +273,33 @@ async function ensureGallerySnippetsLoaded() {
     const data = await res.json();
     const snippets = Array.isArray(data) ? data : [];
     const decoded = snippets
-      .map((entry) => entry?.code)
-      .filter((code) => typeof code === "string" && code.length > 0)
-      .map((code) => {
+      .map((entry) => {
+        const encoded = entry?.code;
+        if (typeof encoded !== "string" || encoded.length === 0) {
+          return null;
+        }
+
         try {
-          const raw = atob(code);
-          return decodeURIComponent(raw);
+          const raw = atob(encoded);
+          let code = raw;
+          try {
+            code = decodeURIComponent(raw);
+          } catch {
+            // keep raw when not URI-encoded
+          }
+          return {
+            sketch_id: entry?.sketch_id || entry?._id || "unknown",
+            code
+          };
         } catch {
-          return "";
+          return null;
         }
       })
-      .filter((code) => {
-        const normalized = code.toLowerCase();
+      .filter((item) => {
+        if (!item?.code) {
+          return false;
+        }
+        const normalized = item.code.toLowerCase();
         if (!normalized.includes(".out(") && !normalized.includes(".out()")) {
           return false;
         }
@@ -354,10 +376,11 @@ async function applyRandomSnippet() {
   }
 
   const next = gallerySnippets[Math.floor(Math.random() * gallerySnippets.length)];
-  codeEditor.value = next;
-  applyHydraCode(next);
+  codeEditor.value = next.code;
+  applyHydraCode(next.code);
+  setStatus(`Random loaded from Hydra sketch ${next.sketch_id}.`);
   if (actingAsHost) {
-    broadcastToViewers({ type: "code", code: next });
+    broadcastToViewers({ type: "code", code: next.code });
   }
 }
 
@@ -697,8 +720,8 @@ ${code}
 
 function createPanelEngine(code) {
   const panelCanvas = document.createElement("canvas");
-  panelCanvas.width = 640;
-  panelCanvas.height = 360;
+  panelCanvas.width = PANEL_RUNNER_WIDTH;
+  panelCanvas.height = PANEL_RUNNER_HEIGHT;
   panelCanvas.style.width = "320px";
   panelCanvas.style.height = "180px";
   panelRunnerMount.appendChild(panelCanvas);
@@ -707,8 +730,8 @@ function createPanelEngine(code) {
     const instance = new Hydra({
       canvas: panelCanvas,
       detectAudio: false,
-      width: 640,
-      height: 360,
+      width: PANEL_RUNNER_WIDTH,
+      height: PANEL_RUNNER_HEIGHT,
       makeGlobal: false
     });
     const synth = instance.synth || instance;
@@ -789,6 +812,14 @@ function trackPlacedPanel(entry) {
   placedPanels.push(entry);
 }
 
+function disposePlacedPanel(entry) {
+  entry.scene.remove(entry.mesh);
+  entry.material.dispose();
+  entry.texture.dispose();
+  entry.mesh.geometry.dispose();
+  disposePanelEngine(entry.panelEngine);
+}
+
 function removeLastPanel() {
   const panel = placedPanels.pop();
   if (!panel) {
@@ -796,22 +827,13 @@ function removeLastPanel() {
     return;
   }
 
-  panel.scene.remove(panel.mesh);
-  panel.material.dispose();
-  panel.texture.dispose();
-  panel.mesh.geometry.dispose();
-  disposePanelEngine(panel.panelEngine);
+  disposePlacedPanel(panel);
   setStatus("Removed last placed panel.");
 }
 
 function clearPlacedPanels() {
   while (placedPanels.length > 0) {
-    const panel = placedPanels.pop();
-    panel.scene.remove(panel.mesh);
-    panel.material.dispose();
-    panel.texture.dispose();
-    panel.mesh.geometry.dispose();
-    disposePanelEngine(panel.panelEngine);
+    disposePlacedPanel(placedPanels.pop());
   }
   setStatus("Cleared all placed panels.");
 }
@@ -965,6 +987,11 @@ function addPanelAt(scene, geometry, cameraPos, worldPos) {
     panelEngine,
     scene
   });
+
+  if (placedPanels.length > MAX_PLACED_PANELS) {
+    const oldest = placedPanels.shift();
+    disposePlacedPanel(oldest);
+  }
 
   const item = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1274,6 +1301,9 @@ function bindEvents() {
       (event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") {
+          event.stopImmediatePropagation();
+        }
         const now = Date.now();
         if (now - lastOverlayActionTs < 120) {
           return;
@@ -1285,7 +1315,7 @@ function bindEvents() {
     );
   };
 
-  bindOverlayAction(overlayExitBtn, () => overlayExitBtn.onclick?.());
+  bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanels);
 
