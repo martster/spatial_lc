@@ -5,9 +5,8 @@ Browser-based AR visual live coding prototype using Hydra and a live camera stre
 ## Goal
 
 - Live-code visuals in the browser with Hydra.
-- Use camera input from smartphones or computers with webcams.
-- Keep all changes tracked in GitHub.
-- Deploy the static site with GitHub Pages.
+- Use a two-device workflow: host (edit code) and viewer (place visuals in AR).
+- Place time-based visual panels in space and collect them in a gallery.
 
 ## Run locally
 
@@ -23,34 +22,25 @@ npx serve .
 
 Open `http://localhost:8000` and allow camera access.
 
-## GitHub tracking setup
+## How it works
 
-```bash
-git init
-git add .
-git commit -m "Initial AR live coding prototype"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
-```
+- `Host Session` (typically laptop): edits Hydra code and streams it live.
+- `Join as Viewer` (typically phone): receives code updates and places AR panels.
+- `Share Viewer Link`: opens native share flow (or clipboard fallback) to get the viewer URL onto the phone.
+- AR modes are selected automatically:
+  - WebXR AR where supported
+  - iOS Quick Look where available
+  - Desktop AR fallback (camera + 3D overlay)
 
-## Deploy with GitHub Pages
+## Gallery and panel behavior
 
-This repository includes `.github/workflows/deploy-pages.yml`.
-
-Steps:
-
-1. Push this repository to GitHub.
-2. In GitHub: `Settings -> Pages`.
-3. Under `Build and deployment`, select `GitHub Actions` as source.
-4. Push to `main` and wait for the Pages deployment job.
-
-After deployment, your page URL is typically:
-
-`https://<github-username>.github.io/<repo-name>/`
+- Each placed panel keeps the code state from its placement moment.
+- Placed panels remain animated (with per-panel code context where possible).
+- AR overlay supports `Undo Last` and `Clear All`.
+- `Placed Moments` gallery stores snapshots and code snippets locally and can reload code.
 
 ## Notes
 
 - iOS Safari and some Android browsers require explicit user interaction before media playback.
-- For production AR anchoring (plane tracking/world tracking), add a WebXR or AR.js layer later. This version focuses on camera-reactive visual live coding.
+- WebXR support varies by browser/device; desktop fallback exists for unsupported environments.
 - Code comments in this project are in English by design.
