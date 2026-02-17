@@ -52,6 +52,11 @@ body {
   color: var(--muted);
 }
 
+.topbar-links a {
+  color: var(--cyan);
+  font-weight: 700;
+}
+
 .sync-panel,
 .controls,
 .gallery {
@@ -176,6 +181,10 @@ button#ar-btn,
 button#copy-link-btn,
 #overlay-undo-btn {
   background: var(--cyan);
+}
+
+button#random-btn {
+  background: #ffd6ff;
 }
 
 button#host-btn {
@@ -325,6 +334,7 @@ body.viewer-role #host-btn,
 body.viewer-role #copy-link-btn,
 body.viewer-role #run-btn,
 body.viewer-role #reset-btn,
+body.viewer-role #random-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .controls label {
   display: none;

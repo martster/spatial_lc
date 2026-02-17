@@ -4,6 +4,7 @@ const canvas = document.getElementById("hydra-canvas");
 const codeEditor = document.getElementById("hydra-code");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
+const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
@@ -61,14 +62,6 @@ const viewerConnections = new Set();
 
 const placedPanels = [];
 let galleryItems = [];
-const panelEngineCanvases = document.createElement("div");
-panelEngineCanvases.style.position = "fixed";
-panelEngineCanvases.style.left = "-10000px";
-panelEngineCanvases.style.top = "-10000px";
-panelEngineCanvases.style.width = "1px";
-panelEngineCanvases.style.height = "1px";
-panelEngineCanvases.style.overflow = "hidden";
-document.body.appendChild(panelEngineCanvases);
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -89,17 +82,46 @@ solid(0.02, 0.01, 0.04)
       .blend(solid(), 0.55)
   )
   .modulate(osc(12, 0.02, 0.4), 0.08)
-  .layer(
-    src(s0)
-      .saturate(0.2)
-      .contrast(1.1)
-      .luma(0.42)
-      .blend(solid(), 0.58)
-  )
   .out(o0)
 
 render(o0)
 `.trim();
+
+const hydraSnippets = [
+  `
+osc(8, 0.02, 1.1)
+  .kaleid(7)
+  .rotate(() => time * 0.05)
+  .color(1, 0.2, 0.7)
+  .modulate(noise(2.5, 0.08), 0.14)
+  .out(o0)
+render(o0)
+`.trim(),
+  `
+voronoi(4, 0.3, 0.4)
+  .color(0.1, 1, 0.85)
+  .posterize(6, 0.25)
+  .scrollY(() => Math.sin(time * 0.2) * 0.03)
+  .out(o0)
+render(o0)
+`.trim(),
+  `
+shape(4, 0.45, 0.02)
+  .repeat(3, 2)
+  .rotate(() => time * 0.12)
+  .color(1, 0.9, 0.1)
+  .mult(osc(30, 0.01, 0.7))
+  .out(o0)
+render(o0)
+`.trim(),
+  `
+noise(3, 0.12)
+  .colorama(() => 0.02 + Math.sin(time * 0.7) * 0.02)
+  .modulate(osc(12, 0.03, 0.6), 0.1)
+  .out(o0)
+render(o0)
+`.trim()
+];
 
 function resolveRole() {
   const explicit = urlParams.get("role");
@@ -205,6 +227,15 @@ function applyHydraCode(code, fromRemote = false) {
     }
   } catch (error) {
     setStatus(`Error: ${error.message}`, true);
+  }
+}
+
+function applyRandomSnippet() {
+  const next = hydraSnippets[Math.floor(Math.random() * hydraSnippets.length)];
+  codeEditor.value = next;
+  applyHydraCode(next);
+  if (actingAsHost) {
+    broadcastToViewers({ type: "code", code: next });
   }
 }
 
@@ -526,60 +557,7 @@ function clearGallery() {
   renderGallery();
 }
 
-function createPanelEngine(code) {
-  const offCanvas = document.createElement("canvas");
-  offCanvas.width = 640;
-  offCanvas.height = 360;
-  offCanvas.style.width = "320px";
-  offCanvas.style.height = "180px";
-  panelEngineCanvases.appendChild(offCanvas);
-
-  try {
-    const synth = new Hydra({
-      canvas: offCanvas,
-      detectAudio: false,
-      width: 640,
-      height: 360,
-      makeGlobal: false
-    });
-
-    synth.s0.init({ src: webcam });
-    if (typeof synth.eval === "function") {
-      synth.eval(code);
-    } else {
-      new Function("synth", `with(synth){${code}}`)(synth);
-    }
-
-    return { canvas: offCanvas, synth };
-  } catch (error) {
-    offCanvas.remove();
-    console.warn("Panel engine fallback to snapshot:", error);
-    return null;
-  }
-}
-
-function createPanelMaterial(code) {
-  const panelEngine = createPanelEngine(code);
-
-  if (panelEngine) {
-    const texture = new THREE.CanvasTexture(panelEngine.canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      side: THREE.DoubleSide
-    });
-
-    return {
-      material,
-      texture,
-      panelEngine,
-      snapshot: panelEngine.canvas.toDataURL("image/jpeg", 0.88)
-    };
-  }
-
+function createPanelMaterial() {
   const snap = document.createElement("canvas");
   const width = canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
   const height = canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
@@ -593,34 +571,63 @@ function createPanelMaterial(code) {
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uTex: { value: texture },
+      uTime: { value: 0 },
+      uSeed: { value: Math.random() * 100.0 }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uTex;
+      uniform float uTime;
+      uniform float uSeed;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 uv = vUv;
+        float waveA = sin((uv.y * 16.0) + uTime * 1.6 + uSeed) * 0.007;
+        float waveB = cos((uv.x * 14.0) - uTime * 1.2 + uSeed * 1.7) * 0.006;
+        uv.x += waveA;
+        uv.y += waveB;
+
+        vec4 col = texture2D(uTex, uv);
+        float pulse = 0.05 * sin(uTime * 1.8 + uSeed);
+        col.rgb += pulse;
+        gl_FragColor = col;
+      }
+    `,
     side: THREE.DoubleSide
   });
+
   return {
     material,
     texture,
     panelEngine: null,
+    animateUniform: true,
     snapshot: snap.toDataURL("image/jpeg", 0.88)
   };
 }
 
-function updatePlacedPanelTextures() {
+function updatePlacedPanelTextures(elapsedSeconds) {
   for (const panel of placedPanels) {
-    panel.texture.needsUpdate = true;
+    if (panel.texture) {
+      panel.texture.needsUpdate = false;
+    }
+    if (panel.animateUniform && panel.material.uniforms?.uTime) {
+      panel.material.uniforms.uTime.value = elapsedSeconds;
+    }
   }
 }
 
 function disposePanelEngine(panelEngine) {
-  if (!panelEngine) {
-    return;
-  }
-  try {
-    panelEngine.synth.hush();
-  } catch {
-    // ignore dispose errors
-  }
-  panelEngine.canvas.remove();
+  // no-op; kept for compatibility with older entries
 }
 
 function trackPlacedPanel(entry) {
@@ -788,7 +795,7 @@ function initArScene() {
 }
 
 function addPanelAt(scene, geometry, cameraPos, worldPos) {
-  const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
+  const { material, texture, panelEngine, snapshot, animateUniform } = createPanelMaterial();
   const plane = new THREE.Mesh(geometry.clone(), material);
 
   plane.position.copy(worldPos);
@@ -796,7 +803,14 @@ function addPanelAt(scene, geometry, cameraPos, worldPos) {
   plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
 
   scene.add(plane);
-  trackPlacedPanel({ mesh: plane, material, texture, panelEngine, scene });
+  trackPlacedPanel({
+    mesh: plane,
+    material,
+    texture,
+    panelEngine,
+    scene,
+    animateUniform: !!animateUniform
+  });
 
   const item = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -875,7 +889,7 @@ function onArFrame(_, frame) {
     }
   }
 
-  updatePlacedPanelTextures();
+  updatePlacedPanelTextures(performance.now() * 0.001);
   xrRenderer.render(xrScene, xrCamera);
 }
 
@@ -983,7 +997,7 @@ function desktopAnimate() {
     return;
   }
 
-  updatePlacedPanelTextures();
+  updatePlacedPanelTextures(performance.now() * 0.001);
   desktopRenderer.render(desktopScene, desktopCamera);
   desktopRaf = requestAnimationFrame(desktopAnimate);
 }
@@ -1073,6 +1087,8 @@ function bindEvents() {
       broadcastToViewers({ type: "code", code: codeEditor.value });
     }
   });
+
+  randomBtn.addEventListener("click", applyRandomSnippet);
 
   codeEditor.addEventListener("input", () => {
     if (role === "controller") {
