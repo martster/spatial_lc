@@ -182,6 +182,10 @@ button#host-btn {
   background: var(--lime);
 }
 
+button#qr-link-btn {
+  background: #f7a8ff;
+}
+
 button#join-btn {
   background: var(--pink);
 }
@@ -275,6 +279,46 @@ button:disabled {
   pointer-events: auto;
   touch-action: manipulation;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+
+.qr-dialog {
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0;
+  background: #130623;
+  color: var(--text);
+}
+
+.qr-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.qr-dialog-inner {
+  padding: 1rem;
+  display: grid;
+  gap: 0.55rem;
+  min-width: min(90vw, 340px);
+}
+
+.qr-dialog-inner h3 {
+  margin: 0;
+  font-family: "Bungee", sans-serif;
+  font-size: 1rem;
+}
+
+#qr-code {
+  background: #fff;
+  border-radius: 0.2rem;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 0.45rem;
+}
+
+#qr-url {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-all;
 }
 
 body.viewer-role #host-btn,

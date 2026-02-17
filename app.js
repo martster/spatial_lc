@@ -13,6 +13,7 @@ const roomIdInput = document.getElementById("room-id");
 const hostBtn = document.getElementById("host-btn");
 const joinBtn = document.getElementById("join-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
+const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
@@ -22,6 +23,10 @@ const overlayClearBtn = document.getElementById("overlay-clear-btn");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
+const qrDialog = document.getElementById("qr-dialog");
+const qrCodeEl = document.getElementById("qr-code");
+const qrUrlEl = document.getElementById("qr-url");
+const qrCloseBtn = document.getElementById("qr-close-btn");
 
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
@@ -56,6 +61,14 @@ const viewerConnections = new Set();
 
 const placedPanels = [];
 let galleryItems = [];
+const panelEngineCanvases = document.createElement("div");
+panelEngineCanvases.style.position = "fixed";
+panelEngineCanvases.style.left = "-10000px";
+panelEngineCanvases.style.top = "-10000px";
+panelEngineCanvases.style.width = "1px";
+panelEngineCanvases.style.height = "1px";
+panelEngineCanvases.style.overflow = "hidden";
+document.body.appendChild(panelEngineCanvases);
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -355,7 +368,10 @@ function joinSession() {
 }
 
 function buildViewerUrl() {
-  const room = (roomIdInput.value || "").trim();
+  const room =
+    (roomIdInput.value || "").trim() ||
+    new URLSearchParams(window.location.search).get("room") ||
+    "";
   const url = new URL(window.location.href);
   url.searchParams.set("role", "viewer");
   url.searchParams.set("room", room);
@@ -385,6 +401,28 @@ async function shareViewerLink() {
   } catch {
     setSyncStatus(`Viewer link: ${url}`);
   }
+}
+
+function showViewerQr() {
+  const { room, url } = buildViewerUrl();
+  if (!room) {
+    setSyncStatus("Host session first, then open QR.", true);
+    return;
+  }
+
+  qrCodeEl.innerHTML = "";
+  if (window.QRCode) {
+    new window.QRCode(qrCodeEl, {
+      text: url,
+      width: 220,
+      height: 220
+    });
+  } else {
+    qrCodeEl.textContent = "QR library unavailable.";
+  }
+
+  qrUrlEl.textContent = url;
+  qrDialog.showModal();
 }
 
 function loadGallery() {
@@ -492,6 +530,9 @@ function createPanelEngine(code) {
   const offCanvas = document.createElement("canvas");
   offCanvas.width = 640;
   offCanvas.height = 360;
+  offCanvas.style.width = "320px";
+  offCanvas.style.height = "180px";
+  panelEngineCanvases.appendChild(offCanvas);
 
   try {
     const synth = new Hydra({
@@ -503,10 +544,16 @@ function createPanelEngine(code) {
     });
 
     synth.s0.init({ src: webcam });
-    new Function("synth", `with(synth){${code}}`)(synth);
+    if (typeof synth.eval === "function") {
+      synth.eval(code);
+    } else {
+      new Function("synth", `with(synth){${code}}`)(synth);
+    }
 
     return { canvas: offCanvas, synth };
-  } catch {
+  } catch (error) {
+    offCanvas.remove();
+    console.warn("Panel engine fallback to snapshot:", error);
     return null;
   }
 }
@@ -525,7 +572,12 @@ function createPanelMaterial(code) {
       side: THREE.DoubleSide
     });
 
-    return { material, texture, panelEngine, snapshot: panelEngine.canvas.toDataURL("image/jpeg", 0.88) };
+    return {
+      material,
+      texture,
+      panelEngine,
+      snapshot: panelEngine.canvas.toDataURL("image/jpeg", 0.88)
+    };
   }
 
   const snap = document.createElement("canvas");
@@ -541,8 +593,16 @@ function createPanelMaterial(code) {
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-  return { material, texture, panelEngine: null, snapshot: snap.toDataURL("image/jpeg", 0.88) };
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.DoubleSide
+  });
+  return {
+    material,
+    texture,
+    panelEngine: null,
+    snapshot: snap.toDataURL("image/jpeg", 0.88)
+  };
 }
 
 function updatePlacedPanelTextures() {
@@ -560,6 +620,7 @@ function disposePanelEngine(panelEngine) {
   } catch {
     // ignore dispose errors
   }
+  panelEngine.canvas.remove();
 }
 
 function trackPlacedPanel(entry) {
@@ -1034,6 +1095,8 @@ function bindEvents() {
   });
 
   copyLinkBtn.addEventListener("click", shareViewerLink);
+  qrLinkBtn.addEventListener("click", showViewerQr);
+  qrCloseBtn.addEventListener("click", () => qrDialog.close());
 
   overlayExitBtn.addEventListener("touchend", (event) => {
     event.preventDefault();
