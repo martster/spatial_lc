@@ -257,6 +257,14 @@ button:disabled {
   color: var(--muted);
 }
 
+.gallery-sketch-link {
+  display: block;
+  padding: 0 0.45rem;
+  font-size: 0.72rem;
+  color: var(--cyan);
+  text-decoration: none;
+}
+
 .gallery-actions {
   display: flex;
   gap: 0.35rem;

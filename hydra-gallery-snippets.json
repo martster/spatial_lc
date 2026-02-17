@@ -1,0 +1,722 @@
+[
+  {
+    "sketch_id": "00CQHZhwZJDzealr",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Zach Krall\n// http://zachkrall.online/\n\nosc( 215, 0.1, 2 )\n.modulate(\n  osc( 2, -0.3, 100 )\n  .rotate(15)\n)\n.mult(\n  osc( 215, -0.1, 2)\n  .pixelate( 50, 50 )\n)\n.color( 0.9, 0.0, 0.9 )\n.modulate(\n  osc( 6, -0.1 )\n  .rotate( 9 )\n)\n.add(\n  osc( 10, -0.9, 900 )\n  .color(1,0,1)\n)\n.mult(\n  shape(900, 0.2, 1)\n  .luma()\n  .repeatX(2)\n  .repeatY(2)\n  .colorama(10)\n)\n.modulate(\n  osc( 9, -0.3, 900 )\n  .rotate( 6 )\n)\n.add(\n  osc(4, 1, 90)\n  .color(0.2,0,1)\n)\n.out()\n\n"
+  },
+  {
+    "sketch_id": "00Gwr6BWyvY9mrrN",
+    "code": "// \n// \n// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\nosc(8.98, 0, 1.856)\n\t.kaleid()\n\t.mult(osc(20, 0.001, 0)\n\t\t.rotate(1.78))\n\t.blend(o0, 0.811)\n\t.modulateScale(osc(10, 0), -0.03)\n\t.scale(0.958, () => 1.05 + 0.089 * Math.sin(0.188 * time))\n\t.hue(.097)\n\t.shift(.954)\n\t.out(o0);"
+  },
+  {
+    "sketch_id": "00RNiEEyO5iaqPFB",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// @_ojack_\n\nosc(20, 0.01, 1.1)\n\t.kaleid(5)\n\t.color(2.83,0.91,0.39)\n\t.rotate(0, 0.1)\n\t.modulate(o0, () => mouse.x * 0.0003)\n\t.scale(1.01)\n  \t.out(o0)\n"
+  },
+  {
+    "sketch_id": "00VHlSdrGcSEpGap",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\na.show(1)\na.setBins(1)\na.setSmooth(0.8)\n\n\nvoronoi(5,0.3,0.3).thresh(0.5,0.04)\n\n  .colorama([5,0.33,0.66,1.0].fast(5))\n.add(shape(20))\n.kaleid(15)\n.add(shape(50))\n .colorama([5,0.33,0.66,1.0].fast(5))\n.hue(({time}) => Math.sin(time))\n.modulateScale(osc(4,-0.5,0))\n.modulate(osc(25,0.1,0.5)\n              .kaleid(50)\n              .scale(({time})=>Math.sin(time*1)*0.5+1)\n              .modulate(noise(0.6,0.5)),\n              0.5)\n.modulateKaleid(osc(11,0.5,0),50)\n.modulateHue(src(o0).scale(1.01),1)\n.add(voronoi(5,0.3,0.3).thresh(0.5,0.04))\n.colorama([5,0.33,0.66,1.0].fast(5))\n.hue(({time}) => Math.sin(time))\n\n.add(shape(50),[0,0.25,0.5,0.75,1])\n.color(1,0,3)\n\n\n\n\n\n\n\n\n\n\n.modulatePixelate(noise(25,0.5),100)\n\n\n\n\n\n\n\n\n\n.out()\n\n"
+  },
+  {
+    "sketch_id": "00mmbKcTwJTf9LuL",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\n\n"
+  },
+  {
+    "sketch_id": "00xI2mrmNjYgCcLP",
+    "code": "voronoi(48,8,222).rotate(10,100).color(141,120,12).kaleid(20).out()"
+  },
+  {
+    "sketch_id": "018owST0EXpTu7jI",
+    "code": "await loadScript(\"https://hydra-extensions.glitch.me/hydra-text.js\")\n\n\n// text params\nhydraText.font = \"georgia\"\nhydraText.lineWidth = \".4%\"\nstr = \"Merge\"\n\n\t\n// bpm for arrays\nbpm = 60\n\n// control the scaling with the sound:\na.setBins(3)\nlet scaleRatio = ()=>a.fft[0]*1\na.setSmooth(.99)\n\n// set variables for the controller:\n// PLAY WITH THESE NUMBERS TO SEE WHERE THIS CAN GO\n\nlet textMix = 1\nlet textEffect = .3\nlet noiseMix = .5\nlet shapeMix = 1\nlet shapeEffect = 100\nlet shapeEffectMix = 1\nlet repeatA = 10\nlet repeatB = 5\nlet rotateSpeed = .1\n\n// the code for the controller mapping, unused:\n\n// let textMix = ()=>cc[02]\n// let textEffect = .3\n// let noiseMix = .7\n// let shapeMix = 1\n// let repeatA = 5\n// let repeatB = 7\n// let rotateSpeed = .1\n\n\n\nsolid(0,0,0)\n\n// noise that can be blended in:\n.add(noise(100,10),noiseMix)\n.scale(({time})=>Math.sin(time*1)/100)\n\n\t\n\n//the shape\n.add(shape([4,5,6,7,8,9,10,12,25,30,12,10,8,7,6,5],shapeMix)\n//adds some sweet effects - comment it on and off to try\n//.modulateKaleid(osc(5,.9,10),5,10)\n//.modulatePixelate(solid(.1,.15,10),1,3)   \n\n\n// color the shape\n     .mult(osc(5,-1,1).rotate(10).repeat(3).kaleid(3),5)\n// scaling with sound     \n     .scale(scaleRatio)\n// repeating of the shape\n     .repeat(repeatA,repeatB)\n// rotation of the repeats\n     .rotate(10,rotateSpeed)\n// modulate the shape\n     .modulate(voronoi(shapeEffect),shapeEffectMix)\n// closing the shape\n    ,100)\n\n// add text\n.add(src(o1)\n       .layer(text(str).mult(voronoi(10000001,3)).color(.9,.1,.9))\n       //.brightness( () => Math.sin(time) )\n       .layer(strokeText(str).hue(() => Math.sin(time)).modulate(noise(1.5,.1), textEffect/2).mult(osc(5,.1,100)))\n       ,textMix)\n\n\n\n\n  .out()\n\n\n\n\n"
+  },
+  {
+    "sketch_id": "01FhuKUBjrxHSpC5",
+    "code": "(async() => {\n    voronoi(1000,0.3,3).color(2,6,4).contrast(43).out()\n})().catch(err=>log(err.message,\"log-error\"))"
+  },
+  {
+    "sketch_id": "01P79yQpKAu3FKAB",
+    "code": "//Ángel Jara\nosc([20,4,5,8,3,35],0.3,[4,20,15,3,8])\n.luma()\n.rotate(1.57)\n.modulate(voronoi(50,0.2,10).modulate(osc(30,1).rotate(0.1)))\n.pixelate(1,1000)\n.modulate(noise(2,0.2,10).modulate(osc(30,1).rotate(0.1)))\n.out()"
+  },
+  {
+    "sketch_id": "01REdcBOKJWU5vEk",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//corrupted screensaver\n//by Ritchse\n//instagram.com/ritchse\n \nvoronoi(370,0.15)\n  \t.modulateScale(osc(8).rotate(Math.sin(time)),.5)\n  \t.thresh(.8)\n\t.modulateRotate(osc(7),.4)\n\t.thresh(.7)\n  \t.diff(src(o0).scale(1.8))\n\t.modulateScale(osc(3).modulateRotate(o0,.54))\n\t.diff(src(o0).rotate([-.012,.01,-.002,0]).scrollY(0,[-1/199600,0].fast(0.7)))\n\t.brightness([-.03,-.18].smooth().fast(.6))\n\t.out()\n"
+  },
+  {
+    "sketch_id": "01WpwmfbxTRUOnze",
+    "code": "\nvoronoi(2,0.3,0.2).shift(0.5)\n.modulatePixelate(voronoi(4,0.2),32,2)\n.scale(()=>1+(Math.sin(time*2.5)*0.05))\n.diff(voronoi(3).shift(0.6))\n.diff(osc(2,0.15,1.1).rotate())\n.brightness(0.1).contrast(1.2).saturate(1.2)\n\t.out()\nspeed = 0.8\n"
+  },
+  {
+    "sketch_id": "01i7TYyoa1e8wSuq",
+    "code": "\nosc(4,.13,4).modulate(voronoi(2,-.8),3).luma(-.1).brightness(.41).out(o1)\nsrc(o0)\n.modulate(noise(1).color([Math.random(-.5,.5)],[Math.random(1,-1)]),.01)\n.layer(src(o1).mask(shape(3,.7,0.001).rotate(2,.5)).scale(.75,1,()=>window.innerWidth/window.innerHeight)).out()\n\n\n"
+  },
+  {
+    "sketch_id": "01pbTwbmF4MASmj0",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\nawait loadScript(\"https://cdn.jsdelivr.net/gh/geikha/hyper-hydra@latest/hydra-outputs.js\")\n\no0.setNearest()\no1.setLinear()\n\nsrc(o0)\n .layer(osc(30,.2,1).mask(shape(4,.1,0)))\n .scale(1.01).rotate(.01)\n .out(o0)\n\nsrc(o1)\n .layer(osc(30,.2,1).mask(shape(4,.1,0)))\n .scale(0.99).rotate(.05).scrollX(0.5,0.0).scrollY(0.0,0.0).kaleid(1) \n .out(o1)\n\nrender(o1)\n\n"
+  },
+  {
+    "sketch_id": "020YvcnxGIzCOvfd",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nosc(4, 0.5,2).modulateRotate(noise(1,0.9,9.0),2).color(0.3,0.5,1.0).hue(()=>time*0.3).modulateScale(shape(3)).modulateKaleid(osc(29,0.03,1).kaleid(5)).modulateScale(noise(1),0.4).kaleid(8).modulateRotate(osc(0.3).kaleid(1000),99.0).modulateScale(osc(29).kaleid(99),1).out(o0) \n"
+  },
+  {
+    "sketch_id": "0290X5UBTlqSHVxm",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// port\n// by Marianne Teixido\n// https://marianneteixido.github.io/\nosc(9.083, 0.9, 0.001)\n\t.kaleid([3, 4, 5, 7, 8, 9, 10].fast(0.1))\n\t.color(0.5, 0.3)\n\t.colorama(0.4)\n\t.rotate(0.009, () => Math.sin(time) * -0.001)\n\t.modulateRotate(o0, () => Math.sin(time) * 0.003)\n\t.modulate(o0, 0.9)\n\t.scale(0.9)\n\t.out(o0);"
+  },
+  {
+    "sketch_id": "02YJqjIjXKGkYDWi",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(20,0.1,1.2)\n\t.rotate(10,0.3)\n\t.kaleid(2)\n  \t.out()\n"
+  },
+  {
+    "sketch_id": "02j1s3mr2FplOGaZ",
+    "code": "// Tag & Sweep\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nosc(18,0.25,2.5)\n  .rotate(5,1.7)\n.kaleid(4)\n  .out()"
+  },
+  {
+    "sketch_id": "02qYpD5lSfDYJhSv",
+    "code": "\n\n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nosc(200,-0.01245,1).pixelate(55).kaleid(()=>(Math.sin(time/2)*2+3)).out()"
+  },
+  {
+    "sketch_id": "02zIiLTCHW6VkY7Z",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(9, 0.1, 0).color(2, 0.1, 7)\n.mult(osc(40, 0.01, 0)).repeat(11, 13).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(23, 0.2, 0).color(3, 0.8,4).mult(osc(41)).modulateRotate(o0, 0.5)\n.rotate(9).out(o1)\n"
+  },
+  {
+    "sketch_id": "036Qqs7CpdNwK0c5",
+    "code": "\n \n//instagram.com/dnlsmm.studio\n\n\n\n\nA = window.innerHeight/window.innerWidth\n\nshape(4,.3).scale(1,A,1).scrollX(()=>Math.sin(time)/2.5).scrollY(.34)\n.add(shape(4,.3).scale(1,A,1).scrollX(-.4).scrollY(()=>Math.sin(time)/2.95))\n.add(shape(4,.3).scrollX(-.635).scrollY(()=>Math.sin(time)/2.95).rotate(Math.PI).scale(1,A,1))\n.add(shape(4,.3).scrollX(()=>Math.sin(time)/1.57).scrollY(.34).rotate(Math.PI).scale(1,A,1))\n.repeat(2,2)\n.mult(osc(1,0,2).hue(()=>Math.sin(time)/5).add(noise(500,2),.2))\n.add(solid(.1,.2,.1),.2)\n.scrollX(0,.05)\n.add(shape(300,.3,2).color(1,1,0),.1)\n.add(noise(500),.05)\n.diff(src(o0).scale(.9))\n.blend(src(o0).scrollX(0,-.2),.2)\n.scale([.5,.5,1,1].ease('sin').fast(.2))\n.out()\n\n//hush()"
+  },
+  {
+    "sketch_id": "03KDQGL6eBUZbK5n",
+    "code": "//Lupita Quispe\n//segundo sueño\n\nimgEl = document.createElement(\"img\");\nimgEl.crossOrigin = \"anonymous\";\nimgEl.src =\n  \"https://upload.wikimedia.org/wikipedia/commons/9/98/Chuquiraga_jussieui_2.jpg\";\ns1.init({ src: imgEl });\nsrc(s1).out(o0);\n\nimgEl = document.createElement(\"img\");\nimgEl.crossOrigin = \"anonymous\";\nimgEl.src =\n  \"https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Railway-osm-isle_of_man.png/640px-Railway-osm-isle_of_man.png\";\ns2.init({ src: imgEl });\nsrc(s2)\n  .modulateRepeat(o1, [0.6,9,0.1,3].smooth())\n  .out(o1);\n\nsrc(o0).diff(o1,[0,3,0.6,9].smooth())\n  .out(o2);\nrender(o2);\n//render puede ser cambiado a o1,o0,o2//\n"
+  },
+  {
+    "sketch_id": "03ObmLRjI3t5rqEF",
+    "code": "\n \n //Ángel Jara\nosc(5,0.3,1)\n  .mask(shape(4,0.4))\n.modulateScale(noise())\n  .out(o1)\n\nsrc(o0)\n  .scale(1.05)\n  .layer(o1).out()"
+  },
+  {
+    "sketch_id": "03T5mfOl3u9sKvRn",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(3,100.1,1.4)\n  \t.out()\n"
+  },
+  {
+    "sketch_id": "03oL4sjcC3XFZz1A",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// @magdaarques\n// https://www.instagram.com/magdaarques/\na.setBins(1)\na.setScale(1)\nosc(3,.3,4).modulateHue(o0,.8,100).hue(.9,.1).out(o0)\nsrc(o0).modulateKaleid(o0,[2,3,4,5].smooth()).out(o1)\nsrc(o1).hue(()=>a.fft[0]%360*0.05,.1)\n.kaleid(()=>a.fft[0]%360*2,.01)\n  .mask(shape([2,3,4,5,6].smooth(),.5).diff(o2,()=>a.fft[0]%360*2).modulateScrollY(o2,.01,.1).modulateScale(o2,1.1,1))\n  .shift(()=>a.fft[0]%360*.5,100,1,2).blend(o0,()=>a.fft[0]%360*0.02).modulatePixelate(o0,100,()=>a.fft[0]%360*.5).out(o2)\nsrc(o2).colorama(2,1,1,.9).modulateScale(src(o0).shift(1,1,.9,.1).rotate(({time})=>time%360*1).modulateRepeat(o3,.2)).hue(()=>a.fft[1].smooth()).out(o3)\nrender()\n"
+  },
+  {
+    "sketch_id": "03tGa8W83rV22jaa",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Mahalia H-R\n// IG: mm_hr_\n\nshape(()=>Math.sin(2*time)+1*3, .5,.05)\n.repeat(11,5, ()=>a.fft[0]*2, ()=>a.fft[1]*2)\n.scrollY(.5,0.1)\n.color(8,7,5)\n.layer(\n  src(o1)\n  .color(2,2,2)\n  .mask(o0)\n  .luma(.01, .2)\n  .invert(.2)\n)\n.modulate(o1,.02)\n.out(o0)\n\nosc(40, 0.05, 0.1)\n.color(.3,0.1,0.5)\n.modulate(osc(10).rotate(1, 0.5))\n.rotate(1, 0.2)\n.out(o1)\n\nrender(o0)\n\n\n"
+  },
+  {
+    "sketch_id": "048kzjWElz5v5GI7",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Dreamy Diamond\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nosc(7,-0.125).modulate(voronoi(1)).diff(voronoi(1).mult(gradient(-1).luma(0.125)))\n  .luma(0.125)\n  .add(shape(7, 0.5)\n       .mult(voronoi(10,2).blend(o0).diff(gradient(1)).modulate(voronoi())))\n  .scrollY(-0.1)\n  .scrollX(0.125)\n  .blend(o0)\n  .blend(o0)\n  .out()\n\n"
+  },
+  {
+    "sketch_id": "04BWyGyRvAG4rTSu",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// ee_1 . EYE IN THE SKY\n// example of mask and function modulation\n// e_e // @eerie_ear\nnoise(18)\n\t.colorama(10)\n\t.posterize(2)\n\t.kaleid(50)\n\t.mask(shape(25, 0.435)\n\t\t.modulateScale(noise(600.5, 0.5)))\n\t.mask(shape(600, 1, 1.639))\n\t.modulateScale(osc(10, 0.125, 0.05)\n\t\t.kaleid(50))\n\t.mult(osc(20, 0.05, 2.4)\n\t\t.kaleid(50), 0.25)\n\t.scale(1.75, 0.65, 0.50)\n\t.modulate(noise(0.257))\n\t.saturate(6)\n\t.posterize(4, 0.2)\n\t.scale(1.50)\n\t.out();"
+  },
+  {
+    "sketch_id": "04FLweWbjIzIALJf",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n\nosc(20, 0.03, 1.7).kaleid().mult(osc(20, 0.001, 0).rotate(1.58)).blend(o0, 0.94).modulateScale(osc(10, 0),-0.03).scale(0.8, () => (1.05 + 0.1 * Math.sin(0.05*time))).out(o0)\n"
+  },
+  {
+    "sketch_id": "04H1LlnYvd6XyCJ0",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// slow journey\n// by skiffle\n\nbpm = 110\n\nnoise(400, 0.5).modulate(osc(1, () => Math.sin(time*0.001)), 0.19).rotate(1, 0.1)\n  .add(src(o0).scale(0.9).rotate(1, 0.1), 0.5)\n  .diff(osc(1, 1, 1).color(9).luma(0.8))\n  .blend(\n  noise(400, 0.5).modulate(osc(1, () => Math.sin(time*0.0019)), 0.08).rotate(1, 0.15)\n  .add(src(o0).scale(0.8).rotate(1, 0.2), 0.6)\n  .diff(osc(1, 1, 0.5).color(2).luma(2)).invert([0, 1])\n).sub(shape(4, 12), 0.2).rotate(1, 0.05)\n  .sub(osc(8, -0.2).kaleid(60), 0.2)\n  .modulate(voronoi(4))\n  .sub(shape(3).scale(() => 2+Math.sin(time*0.1)-Math.cos(time*0.284)*0.5), 0.1).rotate(1, 0.02).scroll(1, 1, () => Math.sin(time*0.0000013), () => Math.cos(time*0.0000001)-1.01).modulate(voronoi(2))\n  .scale(() => 0.7+Math.sin(time*0.1)*0.5).scrollY(1, () => 0.1+Math.sin(time*0.001)*-0.0001)\n  .color([0.5, 0.8, 0.2, 0])\n  .out()"
+  },
+  {
+    "sketch_id": "04RVddR8hmcblM5O",
+    "code": "\n \n // SAN \n\nosc(60, 0.01, 0).color(4,1.3, 2) \n  .modulateKaleid(osc(12,0.05,0),1)\n.repeat(2,4)\n .luma(.01, .1)\n.blend(o0).rotate(-0.5, -0.5).out(o0)"
+  },
+  {
+    "sketch_id": "04VxsAreGfzsKVVI",
+    "code": "// \"egg of the phoenix\"\n// Alexandre Rangel\n// www.alexandrerangel.art.br/hydra.html\n\nspeed=1.2\nshape(99,.15,.5).color(0,1,2)\n\n.diff( shape(240,.5,0).scrollX(.05).rotate( ()=>time/10 ).color(1,0,.75) )\n.diff( shape(99,.4,.002).scrollX(.10).rotate( ()=>time/20 ).color(1,0,.75) )\n.diff( shape(99,.3,.002).scrollX(.15).rotate( ()=>time/30 ).color(1,0,.75) )\n.diff( shape(99,.2,.002).scrollX(.20).rotate( ()=>time/40 ).color(1,0,.75) )\n.diff( shape(99,.1,.002).scrollX(.25).rotate( ()=>time/50 ).color(1,0,.75) )\n\n.modulateScale(\n  shape(240,.5,0).scrollX(.05).rotate( ()=>time/10 )\n  , ()=>(Math.sin(time/3)*.2)+.2 )\n\n.scale(1.6,.6,1)\n.out()"
+  },
+  {
+    "sketch_id": "04fYTWbgVQi4BSF9",
+    "code": "\n//afalfl\nspeed = 0.008\n\n a.fft[0]\n// a.setBins()\n// a.setSmooth(0)\nvoronoi(1, 233, 0.5).saturate(1,20,-1.3)\n.modulate(shape(10, 2, 5)).color(10, -2, 0.02) \n.modulate(voronoi(100,3,0.05))\n.diff(osc(13,0.5,5)).colorama(1,3,0.5)\n.modulateScale(osc(6,-0.5,2).kaleid(50))\n  .mult(osc(3,-0.25,2).kaleid(50))\n  .scale(0.5,0.5,0.75)\n.hue(100, -3)\n.diff(o0).rotate(1, 4).out()\n"
+  },
+  {
+    "sketch_id": "052xBNh6q5pQG8np",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Asdrúbal Gomez\nnoise(4.07, 0.046, 8.742)\n\t.rotate(0.281, -1.724, -3.492)\n\t.mask(shape(14.363))\n\t.colorama(0.182)\n\t.modulateScale(o0)\n\t.modulateScale(o0, 0.833)\n\t.blend(o0)\n\t.blend(o0)\n\t.blend(o0)\n\t.blend(o0)\n\t.out(o0);"
+  },
+  {
+    "sketch_id": "05J7NDwGSuNb8hAa",
+    "code": "// \"egg of the phoenix\"\n// Alexandre Rangel\n// www.alexandrerangel.art.br/hydra.html\n\nspeed=100\nshape(99,.15,.5).color(0,1,2)\n\n.diff( shape(240,.5,0).scrollX(.05).rotate( ()=>time/10 ).color(1,0,.75) )\n.diff( shape(99,.4,.002).scrollX(.10).rotate( ()=>time/20 ).color(1,0,.75) )\n.diff( shape(99,.3,.002).scrollX(.15).rotate( ()=>time/30 ).color(1,0,.75) )\n.diff( shape(99,.2,.002).scrollX(.20).rotate( ()=>time/40 ).color(1,0,.75) )\n.diff( shape(99,.1,.002).scrollX(.25).rotate( ()=>time/50 ).color(1,0,.75) )\n\n.modulateScale(\n  shape(240,.5,0).scrollX(.09).rotate( ()=>time/30 )\n  , ()=>(Math.sin(time/3)*.2)+.2 )\n\n.scale(1.6,.6,1)\n.out()"
+  },
+  {
+    "sketch_id": "05JXmvAyWswFdTge",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Aqautic blubs\n// By Khoparzi\n// https://khoparzi.com\ngradient(0.0)\n\t.add(noise(), () => Math.cos(time))\n\t.modulateRotate(src(o0)\n\t\t.rotate(0.615, -0.9), 0.0)\n\t.mult(shape(713.794), 1.127)\n\t.repeat(15.391, 5)\n\t.mult(shape(448.988). scale(1.2) \n\t\t.scale(() => Math.sin(time)), 0.8)\n\t.rotate(0.378, 0.111).scale(1.9) \n\t.diff(src(o0)\n\t\t.rotate(0.839, -0.1).scale(1.05), 0.2)\n\t.out();"
+  },
+  {
+    "sketch_id": "05Nl56QrYiAeElJn",
+    "code": "(async() => {\n    // by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(18, 0.1, 0).color(2, 0.1, 2)\n.mult(osc(20, 0.01, 0)).repeat(2, 20).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(20, 0.2, 0).color(2, 0.7, 0.1).mult(osc(40)).modulateRotate(o0, 0.2)\n.rotate(0.2).out(o1)\n})().catch(err=>log(err.message,\"log-error\"))"
+  },
+  {
+    "sketch_id": "05S4A8Dio1FjNYD6",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//Glitch River\n//Flor de Fuego\n//https://flordefuego.github.io/\nvoronoi(8,1)\n.mult(osc(10,0.1,()=>Math.sin(time)*3).saturate(3).kaleid(200))\n.modulate(o0,0.5)\n.add(o0,0.8)\n.scrollY(-0.01)\n.scale(0.99)\n.modulate(voronoi(8,1),0.008)\n.luma(0.3)\n.out()\n\n\nspeed = 0.1\n\n\n\n\n"
+  },
+  {
+    "sketch_id": "05VhLq7S7k7ig7UK",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nawait loadScript(\"https://hyper-hydra.glitch.me/hydra-text.js\")\n\na.show(1)\na.setBins(1)\na.setSmooth(0.8)\n\nhydraText.font = \"sans-serif\"\nhydraText.lineWidth = \"10%\"\nstr = \"FERKUMBIASTAR\"\n\nvoronoi(5,0.3,0.3).thresh(0.5,0.04)\n\n  .colorama([5,0.33,0.66,1.0].fast(5))\n.add(shape(20))\n.kaleid(15)\n.add(shape(50))\n .colorama([5,0.33,0.66,1.0].fast(5))\n.hue(({time}) => Math.sin(time))\n.modulateScale(osc(4,-0.5,0))\n.modulate(osc(25,0.1,0.5)\n              .kaleid(50)\n              .scale(({time})=>Math.sin(time*1)*0.5+1)\n              .modulate(noise(0.6,0.5)),\n              0.5)\n.modulateKaleid(osc(11,0.5,0),50)\n.modulateHue(src(o0).scale(1.01),1)\n.add(voronoi(5,0.3,0.3).thresh(0.5,0.04))\n.colorama([5,0.33,0.66,1.0].fast(5))\n.hue(({time}) => Math.sin(time))\n\n.add(shape(50),[0,0.25,0.5,0.75,1])\n.color(1,0,3)\n\n\n\n\n\n\n\n\n\t.diff(strokeText(str).modulateScale(noise(1,1), .4))\n\n\n.modulatePixelate(noise(25,0.5),100)\n\n\n\n\n\t.diff(strokeText(str).modulateScale(noise(1,1), .4))\n\n\n\n\n\n.out()\n\n"
+  },
+  {
+    "sketch_id": "05ZJjx37a4datJuT",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Mahalia H-R\n// IG: mm_hr_\n\nshape(()=>Math.sin(time)+1*3, .5,.01)\n.repeat(5,3, ()=>a.fft[0]*2, ()=>a.fft[1]*2)\n.scrollY(.5,0.1)\n.layer(\n  src(o1)\n  .mask(o0)\n  .luma(.01, .1)\n  .invert(.2)\n)\n.modulate(o1,.02)\n.out(o0)\n\nosc(40, 0.09, 0.9)\n.color(.9,0,5)\n.modulate(osc(10).rotate(1, 0.5))\n.rotate(1, 0.2)\n.out(o1)\n\nrender(o0) \n\n\n"
+  },
+  {
+    "sketch_id": "05aPhAQNI0QEk3B8",
+    "code": "\n\nshape(\n  [0, 5, 2, 8, 3, 7, 4, 9],\n  [.2, 1, 4, 3, .8]\n)\n.add(\n  noise([5, 2000, 50, 300, .7, -6000])\n .colorama(\n   [0,5,.2,97,200, 30, -6000]\n  )\n  .saturate(2)\n  .contrast(1.3)\n  .add(\n    noise([12, .6, 5, 186, 50, 2, 1000, 46, 500, 1, 5000])\n    .mask(\n      voronoi([13, 1, .4, 17, 5, 24])\n      .scale(0.5,0.7)\n      .scrollX(0.25)\n    )\n  )\n)\n.blend(o0)\n.modulate(osc([0, -3000, 2, 800, 30, 76, 4000, 90], [.2, 3, .7]),0.01)\n.out(o0)\n\n\n"
+  },
+  {
+    "sketch_id": "05m67BroEqKpNC7X",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// https://ojack.github.io\n\nosc(100, 0.01, 1.4)\n\t.rotate(0, 0.1)\n\t.mult(osc(10, 0.1).modulate(osc(10).rotate(0, -0.1), 1))\n\t.color(2.83,0.91,0.39)\n  .out(o0)\n"
+  },
+  {
+    "sketch_id": "05veYGbrLLQIFnRO",
+    "code": "//Atuel\n//@estepar_ia\n\nnoise(5,.5)\n\t.thresh(.38)\n\t.color(.2,.4,.9)\n\t.modulate(o1,1.3)\n.diff(\n  src(o0)\n)\n.blend(\n  src(o0)\n\t.scroll([.001,-.0003].ease(.5),[-.001,.001,-.002].ease(.5))\n)\n.out()\n"
+  },
+  {
+    "sketch_id": "05zNJhc8b2n1oPkX",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Mahalia H-R\n// IG: @mm_hr_\n\nshape(20,0.1,0.01)\n  .scale(() => Math.sin(time)*3)\n  .repeat(() => Math.sin(time)*10)\n  .modulateRotate(o0)\n  .scale(() => Math.sin(time)*2)\n  .modulate(noise(2,0))\n  .rotate(0.1, 0.9)\n.out(o0)\n\nsrc(o0)\n.modulate(osc(500,0,0))\n.out(o1)\n\nsrc(o1)\n.modulateKaleid(voronoi(() => Math.sin(time)*3,0.1,0.01),() => Math.sin(time)*3)\n.scale(() => Math.sin(time)*3)\n.out(o2)\n\nrender(o2)\n"
+  },
+  {
+    "sketch_id": "06GyanNG3O0FmopI",
+    "code": "pi=Math.PI\nrandom=Math.random()\nspeed=1/pi*2*random\nfps=30*random\nframe=100*random\ntime=random\nlinear=200*random\nsmooth=10*random\nshape(2,0.01,0.05).modulate(noise([0,2].smooth())).mult(osc(10,0.5,300).diff(gradient(1)).diff(solid([0,0,0,0,1,1,1,1].smooth(),[0,0,1,1,0,0,1,1].smooth(),[0,1,0,1,0,1,0,1].smooth())).hue(()=>Math.sin(time),()=>Math.cos(time),()=>Math.tan(time)).invert([0,1].smooth().fast(pi))).modulate(shape([3,7].smooth(),[0,1].smooth(),[1,0].smooth()).colorama([0,10].smooth().fast(1/128))).modulate(voronoi([0,3].smooth().fast(1/128))).modulateRepeat(osc(1).scroll(()=>Math.cos(time),()=>Math.sin(time)),()=>Math.cos(time),()=>Math.sin(time)).rotate(()=>Math.sin(time/pi)).modulateScale(osc([0,5].smooth().fast(1/32))).scale(()=>Math.cos(time/pi)).out()"
+  },
+  {
+    "sketch_id": "06OlDWxLMZW2UGq8",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\n"
+  },
+  {
+    "sketch_id": "06PuzTVM5q2LPXm2",
+    "code": "// e_e // eerie_ear// @sebzabs\n//based on \n//bit.ly/3fhsnVj by @naoto_hieda\n \nosc([4,2],0.05,2)\n  .kaleid(4).rotate(0.79).posterize(24,2.5)\n  \t.add(src(o2).scale(0.98),0.75)\n  .contrast(-1.5).out(o2)\nsrc(o2).modulate(src(o0).colorama(2.3).diff(o0)).mult(solid(),0.5).out()\n"
+  },
+  {
+    "sketch_id": "06VA2kvx3DcVRryD",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// corrupted screensaver\n// by Ritchse\n// instagram.com/ritchse\nvoronoi(600, 0.062).modulateScale(osc(8).rotate(Math.sin(time)), -.0002).thresh(.1).modulateRotate(osc(7), .4).thresh(.11).diff(src(o0).scale(1.8)).modulateScale(osc(2).modulateRotate(o0, .74)).diff(src(o0).rotate([-0.060, .01, -.005, 0]).scrollY(0, [-1 / 199800, 0].fast(0.7))).brightness([-.02, -.17].smooth().fast(.5)).out();\n\n"
+  },
+  {
+    "sketch_id": "06dZl4e8jBcN4HjF",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// port\n// by Marianne Teixido\n// https://marianneteixido.github.io/\nosc(5, 0.9, 0.001)\n\t.kaleid([4.463, 4, 1.363, 7, 8, 9, 10].fast(0.1))\n\t.color(0.5, 0.116)\n\t.colorama(6.4)\n\t.rotate(0.009, () => Math.sin(time) * -0.001)\n\t.modulateRotate(o0, () => Math.sin(time) * 0.003)\n\t.modulate(o0, 0.9)\n\t.scale(0.9)\n\t.out(o0);"
+  },
+  {
+    "sketch_id": "06oykLpaySvwZeqB",
+    "code": "\n \n // Holofrenia  \n// instagram.com/holofrenia\n\nosc(17,0.05,1).rotate(27, 0.5).kaleid(333).diff(shape(3,0.3,0.3)).modulate(osc(200,0.025,6)).modulateScale(osc(3).posterize(366,166))\n  .modulateKaleid(osc(666).kaleid(144))\n  .out()"
+  },
+  {
+    "sketch_id": "06rXMzc5ZG31nysI",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Aqautic blubs\n// By Khoparzi\n// https://khoparzi.com\n\ngradient(0.25)\n.add(noise(), ()=>Math.cos(time))\n.modulateRotate(src(o0).rotate(0, -0.52), 0.2).mult(shape(360), 0.8)\n.repeat(10,5).mult(shape(360).scale(()=>Math.sin(time)), 0.8).rotate(0, 0.2)\n.diff(src(o0).rotate(0, -0.2), 0.2)\n.out()\n"
+  },
+  {
+    "sketch_id": "06yjIKBEYlLOchmz",
+    "code": "// Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nnoise(0.88, .7)\n\t.color(0.4, 1.4, 5)\n\t.saturate(0.6)\n\t.luma(0.816, 0.1, (6, () => 0.088 + a.fft[2]))\n\t.scale(0.7, () => 0.7 + a.fft[3])\n\t.rotate(1.714, 0.623)\n\t.kaleid(6)\n\t.repeat(2, 0.5)\n\t.out();"
+  },
+  {
+    "sketch_id": "0793edqbu1YVIZu8",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nsrc(o0).modulate(noise(3),0.005).blend(shape(4),0.01).color(0,1,1).scrollY(() => mouse.y * 0 - 1).scrollX(() => mouse.x* 0 - 1).out(o0)\n"
+  },
+  {
+    "sketch_id": "07H5uXxYUssePQSm",
+    "code": "\n \n \nnoise(1.51, .532, 6.1)\n\t.rotate(0, .009)\n\t.colorama(1.6)\n\t.modulateScale(o0)\n\t.modulateScrollX(o1)\n\t\n\t.sub(src(o0)\n\t\t.modulateScale(o0).hue(()=>time*.5))\n\t.blend(src(o0).hue(()=>time*-.1),.9)\n\t.diff(src(o1).mod(o1).step(o0).min(o2))\n\t.blend(o0).blend(o0).blend(o0)\n\t.out(o0);\n\nnoise(()=>Math.cos(time*.2)+2, ()=>Math.sin(time*.5)*.001, ()=>tan(time*.5)+2).colorama(4.5).modulateScale(o0).diff(src(o0).rotate(0,.1)).modulateScale(o2).saturate(2.9).out(o1)\n      \n      \n\nsrc(o0).brightness(()=>sin(time))\n  .mask(\nshape()\n\t\t.modulate(noise(6.1, 0.2, 7.2)\n\t\t\t.modulateRotate(o0)\n\t\t\t.diff(src(o1)\n\t\t\t\t.scale(.9).hue(()=>asin(time))\n\t\t\t\t.modulate(osc(5, 1.2, 150.501)))).modulateScale(o1))\n\t\t.rotate(0, -.2)\n.brightness(-.19).contrast(1.9).blend(o2)\n.blend(o2)\n.blend(o2)\n.saturate(0.0)\n\n.out(o2)\n\nrender(o2)"
+  },
+  {
+    "sketch_id": "07MB9eUbKtwfqk2u",
+    "code": "\n\nosc(20,0.2,1.9).diff(voronoi(5,0.3,0.5)).repeat(2,3,4,5,6).mult(noise(10.10)).add(shape(9,0.2,0.25)).rotate(10,0.5)\n.out()"
+  },
+  {
+    "sketch_id": "07YIMlAuaCjdHgCW",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// ee_2 . MULTIVERSE . time and feedback\n// e_e // @eerie_ear\npat = () => solid()\n\t.layer(solid()\n\t\t.diff(osc(time / 16 * 1, time / 1000 * 0.2)\n\t\t\t.mult(osc(time / 8 * 1, time / 1006 * 0.2)\n\t\t\t\t.rotate(1.57))\n\t\t\t.modulate(shape(106, 1, 0.05))\n\t\t\t.mult(shape(106, 1, 0.05))))\n\t.modulateScale(osc(2, 0.125), 0.125);\n// \nsolid()\n\t.layer(solid(1, 1, 1)\n\t\t.mult(pat()\n\t\t\t.diff(src(o0)\n\t\t\t\t.scale(0.2)\n\t\t\t\t.mult(solid(), [0.7, 0.6, 0.4, 0.6])\n\t\t\t\t.kaleid(1.01)\n\t\t\t\t.saturate(0.3)))\n\t\t.layer(solid(1, 1, 1)\n\t\t\t.mask(noise(2, 0.05)\n\t\t\t\t.invert()\n\t\t\t\t.colorama(0.5)\n\t\t\t\t.posterize(8, 4)\n\t\t\t\t.luma(0.25)\n\t\t\t\t.thresh(0.5)\n\t\t\t\t.modulateRotate(osc(1, 0.5)))\n\t\t\t.mult(gradient(0.5)\n\t\t\t\t.kaleid(1)\n\t\t\t\t.colorama(2)\n\t\t\t\t.saturate(1.1)\n\t\t\t\t.contrast(1.6)\n\t\t\t\t.mult(solid(), 0.45))))\n\t.out();\n// \nspeed = 0.5;"
+  },
+  {
+    "sketch_id": "07i4f9kgGryoxXAC",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// @woshibide\n\nlet ch1 = ()=>a.fft[0]\nlet ch2 = ()=>a.fft[1]\nlet ch3 = ()=>a.fft[2]\nlet ch4 = ()=>a.fft[3]\n\na.show()\na.setSmooth(0.9)\na.setCutoff(0.3)\na.setScale(10)\n\nosc(4, 0.3, 1)\n  .modulate(osc(4,0,0))\n  .modulateScale(voronoi(ch4))\n  .modulateKaleid(noise(Math.cos(Math.cos(time/2))),20,3)\n  .modulateRepeat(osc(Math.tan(time)), 30)\n  .modulateKaleid(noise(Math.cos(Math.sin(time/2))),20,3)\n  .out()\n\n"
+  },
+  {
+    "sketch_id": "07onkB85nBEe34fG",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Perpetual elevator buttons\n// By Khoparzi\n// http://khoparzi.com\n\nshape(3).add(osc(1,0.5,1), 1)\n\t.add(o1, () => (Math.sin(time/4) * 0.7 + 0.1))\n\t//.repeat(5)\n  \t.scale(()=>Math.sin(time / 16)).rotate(0, -0.1)\n\t.out(o1)\n\nsrc(o1)\n  .rotate(0,0.1)\n  .out()\n"
+  },
+  {
+    "sketch_id": "07xKvGwOEeGOZpQy",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter"
+  },
+  {
+    "sketch_id": "08Dbp2ayqu41JX2A",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// https://ojack.github.io\n\nosc(4, 0.1, 0.8).color(1.04,0, -1.1).rotate(0.30, 0.1).pixelate(2, 20).modulate(noise(2.5), () => 1.5 * Math.sin(0.08 * time)).out(o0)\n"
+  },
+  {
+    "sketch_id": "08PkURPRdhAEYUlU",
+    "code": "//CHEMOTROPHS STAR FIELD  \na.setSmooth(0.6)\nnoise(200)\n\t.thresh(.8)\n\t.add(src(o0)\n\t\t.scale(1.1)\n\t\t.brightness(() => a.fft[0]*.8 - .8))\n\t.mask(gradient(5))\n//flotegon bonus/spotlight\n  .add(shape(6).scale(1,()=>Math.sin(time/8)).diff(shape(9).scale(1,()=>Math.cos(time/12)).rotate(1)))\n  .out(o0)"
+  },
+  {
+    "sketch_id": "08UqZTkmCvLeqXtz",
+    "code": "osc (25,0.25,1.25)\n.rotate(1.5708)\n.out()"
+  },
+  {
+    "sketch_id": "08hDQANzivJl6lOz",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\n\nosc(10,1,4).color (30,1,7)\n  .out()"
+  },
+  {
+    "sketch_id": "08lZ5SFBipyzLB8Y",
+    "code": "noise(10, 0.1).modulate(osc(100, 100).modulateKaleid(osc(100, [10, 100].smooth().fast(10)))).modulateScale(noise(1, 100)).diff(o0).out(o0)\nsolid(0.3, 0.4, 1).brightness(-0.25).add(noise(3, 0.1).color(0.3, 0.4, 1).contrast(0.3)).contrast(2).out(o1)\nshape(100, 0.1, 0).scale(1.8, 0.5).color(0.3, 0.8, 0.3).scroll(10, 10).scroll(0, 0, 0.4, sin = ()=> Math.abs(Math.sin(time * 2) * 0.1) / 10).scrollY(-0.15).modulateScale(o0).out(o2)\nsrc(o1).diff(o2).out(o3)\nrender(o3)\n"
+  },
+  {
+    "sketch_id": "08voH7KtSHTAvq4R",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// https://ojack.github.io\n\nosc(100, 0.1, 0.8).color(2000.80,0, -5.5).rotate(0.75, 0.1).pixelate(2, 20).modulate(noise(2.5), () => 1.5 * Math.sin(0.08 * time)).out(o0)\n"
+  },
+  {
+    "sketch_id": "092se49r4e08WB56",
+    "code": "\n\nnoise(90,5)\n.add(osc(100))\n  .color(-5,3,-4)\n.kaleid(99)\n.repeat(2 ,4)\n  .out()\n\n\n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter"
+  },
+  {
+    "sketch_id": "095TYYDNaoVlrD4V",
+    "code": "shape(3)\n  .mult(osc(10, 0.05))\n  .repeat(3, 3)\n  .scrollX(1, 0.1)\n  .modulateScale(\n    noise(2, 0.1, 0.5)\n      .mult(osc(10, 0.1))\n      .scale(0.5)\n      .repeat(2, 2)\n      .kaleid(4)\n      .scrollY(-0.1, -0.05)\n  )\n  .modulate(\n    shape(4)\n      .scrollY(1, 0.1)\n      .modulateScale(\n        noise(3, 0.1, 0.5)\n          .mult(osc(20, 0.1))\n          .scale(0.5)\n          .repeat(3, 3)\n          .kaleid(5)\n          .scrollY(0.1, 0.05)\n      ),\n    0.1\n  )\n  .blend(o0)\n  .out();\n"
+  },
+  {
+    "sketch_id": "095hHIGTsPa0f0rB",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//corrupted screensaver\n//by Ritchse\n//instagram.com/ritchse\n \nvoronoi(350,0.15)\n  \t.modulateScale(osc(8).rotate(Math.sin(time)),.5)\n  \t.thresh(.8)\n\t.modulateRotate(osc(7),.4)\n\t.thresh(.7)\n  \t.diff(src(o0).scale(1.8))\n\t.modulateScale(osc(2).modulateRotate(o0,.74))\n\t.diff(src(o0).rotate([-.012,.01,-.002,0]).scrollY(0,[-1/199800,0].fast(0.7)))\n\t.brightness([-.02,-.17].smooth().fast(.5))\n\t.out()\n"
+  },
+  {
+    "sketch_id": "09CP7PpFrQxttyn2",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Nelson Vera\n// twitter: @nel_sonologia\n\nosc(8,-0.5, 1).color(-1.5, -1.5, -1.5).blend(o0).rotate(-0.5, -0.5).modulate(shape(4).rotate(0.5, 0.5).scale(2).repeatX(2, 2).modulate(o0, () => mouse.x * 0.0005).repeatY(2, 2)).out(o0)\n\n\n\n\n\n\n"
+  },
+  {
+    "sketch_id": "09HvQXLhZpUMd2tc",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// ee_1 . EYE IN THE SKY\n//example of mask and function modulation\n// e_e // @eerie_ear\nnoise(18)\n  .colorama(1)\n  .posterize(2)\n  .kaleid(50)\n  .mask(\n    shape(25, 0.25).modulateScale(\n      noise(400.5, 0.5)\n    )\n  )\n  .mask(shape(400, 1, 2.125))\n  .modulateScale(osc(6, 0.125, 0.05).kaleid(50))\n  .mult(osc(20, 0.05, 2.4).kaleid(50), 0.25)\n  .scale(1.75, 0.65, 0.5)\n  .modulate(noise(0.5))\n  .saturate(6)\n  .posterize(4, 0.2)\n  .scale(1.5)\n  .out();\nspeed = 500\n\n\n"
+  },
+  {
+    "sketch_id": "09KHdY0cyuAFdfmE",
+    "code": "// by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(18, 0.1, 0).color(2, 0.1, 2)\n.mult(osc(20, 0.01, 0)).repeat(2, 20).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(20, 0.2, 0).color(2, 0.7, 0.1).mult(osc(40)).modulateRotate(o0, 0.2)\n.rotate(0.1)\n                         "
+  },
+  {
+    "sketch_id": "09KaP7mR8ruQxfNM",
+    "code": "\n \n // by Luchao Hurtado Colegio Avant gard\nosc(25,0.3,4,2)\n.rotate(20,0.9)\n.out()"
+  },
+  {
+    "sketch_id": "09MX2ydiQOZsS9oj",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\n// Ojos parpadeando y formas que representan hocicos de perro\nosc(10, 0.1, 0.5)\n  .color(1, 0, 0)\n  .modulate(\n    osc(30)\n      .thresh()\n      .rotate(1, 0.1)\n  )\n  .kaleid(4)\n  .scale(() => Math.sin(time) * 0.5 + 1)\n  .rotate(() => Math.sin(time) * 0.1)\n  .add(\n    shape(3, 0.8, 0.2)\n      .color(1, 1, 1)\n      .repeat(5, 5)\n      .kaleid(4)\n      .modulate(noise(3, 0.1), 0.5)\n      .blend(o0, 0.5)\n  )\n  .add(\n    shape(4, 0.8, 0.2)\n      .color(1, 1, 1)\n      .repeat(5, 5)\n      .kaleid(4)\n      .modulate(noise(3, 0.1), 0.5)\n      .blend(o0, 0.5)\n      .rotate(1.57) // Rotar para dar forma de hocico\n  )\n  .out()"
+  },
+  {
+    "sketch_id": "09f83BvhkRnjAcnQ",
+    "code": "//Encapsula cada código y actívalo llamandolo por su nombre.\n//Encapsulate each code and activate it by calling it by its name.\nvisual_1 = () => osc(20,0.5,0.2).diff(voronoi(100,0.3,1.5))\nvisual_2 = () => noise(100,10).mult(gradient([1,3,5]))\nvisual_3 = () => shape(5).mask(osc(150,1.5,1.5))\nvisual_4 = () => noise(200,100).layer(osc(20,1.5,1.5))\n\nvisual_4().out()"
+  },
+  {
+    "sketch_id": "09qSlerQkdyTnfbR",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\nfps=1000000\nprevTime = 0\nflashInterval = 1\nshouldFlash = 0\n\nsolid()\n\t.add(osc(), () => {\n        shouldFlash = 0\n        if(time - prevTime >= flashInterval) {\n          shouldFlash = 1\n          prevTime = time\n        }\n  \t\treturn shouldFlash\n     })\n\t.add(shape(4).color(1,0,0))\n\t.out()\n"
+  },
+  {
+    "sketch_id": "09qvoZIzadgJ8Luz",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Zach Krall\n// http://zachkrall.online/\n\nosc(10, 0.9, 300)\n.color(0.9, 0.7, 0.8)\n.diff(\n  osc(45, 0.3, 100)\n  .color(0.9, 0.9, 0.9)\n  .rotate(0.18)\n  .pixelate(12)\n  .kaleid()\n)\n.scrollX(10)\n.colorama()\n.luma()\n.repeatX(4)\n.repeatY(4)\n.modulate(\n  osc(1, -0.9, 300)\n)\n\n.scale(2)\n.scale(100000000000)\n.out()\n\n"
+  },
+  {
+    "sketch_id": "0A3H8p51i7YYgPxn",
+    "code": "// Código en Hydra para una visualización sincronizada con el audio\n// Se recomienda conectar Hydra con un micrófono o una fuente de sonido externa\n\nosc(10, 0.1, 0.8)\n  .color(0.9, 0.2, 0.5)\n  .modulate(noise(3).scale(1.5))\n  .rotate( ({time}) => Math.sin(time) * 0.5 )\n  .modulateScale(osc(4, 0.1, 2))\n  .out();\n\n// Agregamos pulsaciones que reaccionen al audio\naudio = new Audio();\naudio.src = \"ruta-del-audio.mp3\";\naudio.loop = true;\naudio.play();\n\nsrc(o0)\n  .modulate(noise( () => Math.abs(audio.volume) * 10 ))\n  .modulateScale(osc(8, 0.2, 2))\n  .blend(osc(2, 0.5, 2), 0.5)\n  .out();\n\n\n"
+  },
+  {
+    "sketch_id": "0A8X3pMXY8Z8KNCe",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// @_ojack_\n\nosc(13,-0.1,0.7)\n.mask(noise(50,0.3))\n.add(voronoi(9,4,3))\n.rotate(20,0.3)\n.kaleid(80)\n.scroll()\n.pixelate(200,1000)\n.out(o0)\n\n"
+  },
+  {
+    "sketch_id": "0AFEVUn6rYPxupmr",
+    "code": "// by Olivia Jack\n// https://ojack.github.io\n\nosc(100, 0.01, 1.4)\n\t.rotate(0, 0.1)\n\t.mult(osc(10, 0.1).modulate(osc(10).rotate(0, -0.1), 1))\n\t.color(2.83,0.91,0.39)\n  .out(o0)"
+  },
+  {
+    "sketch_id": "0AHzNFeYf7FZnaN7",
+    "code": "// by Zach Krall\n// http://zachkrall.online/\n\nosc( 215, 0.1, 2 )\n.modulate(\n  osc( 2, -4.3, 10.990 )\n  .rotate(175)\n)\n.mult(\n  osc( 215, -0.1, 2)\n  .pixelate( 80, 50 )\n)\n.color( 12.9, 4.0, 0.9 )\n.modulate(\n  osc( 6, -0.1 )\n  .rotate( 19 )\n)\n.add(\n  osc( 10, -11.9, 900 )\n  .color(166,80,14)\n)\n.mult(\n  shape(90, 1.2, 11)\n  .luma()\n  .repeatX(2)\n  .repeatY(2)\n  .colorama(106)\n)\n.modulate(\n  osc( 9, -0.3, 9.00 )\n  .rotate( 65 )\n)\n.add(\n  osc(49, 31, 190)\n  .color(0.2,0,1)\n)\n.out()\n"
+  },
+  {
+    "sketch_id": "0AQdtR5ONNZzXNYP",
+    "code": "// ambient surf tattoo\n// @tsc67\n\nshape(1, 0.009)\n  .repeat(10, 10)\n  .modulateScale(noise(34, 0.0001))\n  //   .modulateRotate(osc(12))\n  .thresh(0.2)\n  .colorama(0.4, 0.2, 0.8)\n  .invert()\n  .modulateScrollY(\n    noise(() => Math.sin(time / 100))\n  )\n  .sub(\n    gradient(0.1)\n      .color([0.1, 0.2, 0.4].smooth(3), 0.2, 0.3)\n      .modulateScale(o0)\n  )\n  .out();\n"
+  },
+  {
+    "sketch_id": "0AREClqBD84VssLz",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//port\n//by Marianne Teixido\n//https://marianneteixido.github.io/\n\nosc(5, 0.9, 0.001)\n    .kaleid([3,4,5,7,8,9,10].fast(0.1))\n    .color(0.5, 0.3)\n    .colorama(0.4)\n    .rotate(0.009,()=>Math.sin(time)* -0.001 )\n    .modulateRotate(o0,()=>Math.sin(time) * 0.003)\n    .modulate(o0, 0.9)\n    .scale(0.9)\n    .out(o0)\n\n\n"
+  },
+  {
+    "sketch_id": "0AaP8blzVXmgV4kw",
+    "code": "\nosc(20,0.1,1.2).out()\n"
+  },
+  {
+    "sketch_id": "0AdUjCopsaknC0wG",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// ee_1 . EYE IN THE SKY\n//example of mask and function modulation\n// e_e // @eerie_ear\nnoise(18)\n  .colorama(90)\n  .posterize(9)\n  .kaleid(90)\n  .mask(\n    shape(9, 0.25).modulateScale(\n      noise(900.5, 100.5)\n    )\n  )\n  .mask(shape(2, 8, 7.125))\n  .modulateScale(osc(6, 0.125, 0.05).kaleid(50))\n  .mult(osc(20, 0.05, 2.4).kaleid(50), 9.25)\n  .scale(1.25, 0.65, 0.5)\n  .modulate(noise(90))\n  .saturate(91)\n  .posterize(9, 0.2)\n  .scale(9.2)\n  .out(23);(21)\n// ee_1 (20)\n"
+  },
+  {
+    "sketch_id": "0AkYTGP0YxubMP7X",
+    "code": "// ee_1 . EYE IN THE SKY\n//example of mask and function modulation\n// e_e // @eerie_ear\nnoise(18)\n  .colorama(1)\n  .posterize(2)\n  .kaleid(50)\n  .mask(\n    shape(25, 0.25).modulateScale(\n      noise(400.5, 0.5)\n    )\n  )\n  .mask(shape(400, 1, 2.125))\n  .modulateScale(osc(6, 0.125, 0.05).kaleid(50))\n  .mult(osc(20, 0.05, 2.4).kaleid(50), 0.25)\n  .scale(1.75, 0.65, 0.5)\n  .modulate(noise(0.5))\n  .saturate(6)\n  .posterize(4, 0.2)\n  .scale(1.5)\n  .out();\n"
+  },
+  {
+    "sketch_id": "0AwrhwNn25vc7uXK",
+    "code": "osc(100,0.1,1.2)\n  \t.out()"
+  },
+  {
+    "sketch_id": "0Ax54abpRznP6Pkb",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(5000,0.1,3.6)\n.rotate(10,0.3)\n.kaleid(20).out()\n"
+  },
+  {
+    "sketch_id": "0BAo4av6LPrksVAE",
+    "code": "//Ángel Jara\nosc(10,0.3,1)\n  .modulateRotate(osc().modulateRotate(osc().modulateRotate(osc())))\n.modulateScale(osc(),[-1,2].smooth())\n  .out()"
+  },
+  {
+    "sketch_id": "0BDEeqZx7VsT241M",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nosc (510, 80, 31).out () \n"
+  },
+  {
+    "sketch_id": "0BG5r9lNgSkvTzol",
+    "code": "\n \nosc(10, 0.1, 0.8).out()\na.show()\n\nosc(\n  12,\n  0.05,\n  () => 0.6 + a.fft[1]\n)\n  .rotate(1.57)\n  .modulate(\n    osc(\n      4,\n      0.03,\n      () => 0.3 + a.fft[2]\n    )\n      .rotate(() => time*0.25),\n    () => 0.8 + a.fft[3]\n  )\n  .modulate(\n    noise(2, 0.4),\n    0.25\n  )\n  .color(\n    1.4,   // blanco fuerte\n    0.15,\n    1.6    // violeta más marcado\n  )\n  .saturate(0.45)\n  .contrast(1.8)\n  .luma(\n    0.2,\n    () => 0.35 + a.fft[3]\n  )\n  .out()\n"
+  },
+  {
+    "sketch_id": "0BK9iwASBoB7CJvA",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n\nosc(20, 0.03, 1.7).kaleid().mult(osc(20, 0.020, 0).rotate(1.28)).blend(o0, 0.100).modulateScale(osc(10, 30\n                                              ),-0.03).scale(0.8, () => (1.05 + 0.1 * Math.sin(0.05*time))).out(o0)\n"
+  },
+  {
+    "sketch_id": "0BWHelMx2uzkvFJS",
+    "code": "//lava gris\n// por sergio Quiroga \n// @serrrggio\n\n noise(666).color(9)\n .modulateRotate(osc(20).thresh(8,15), () => 8 + mouse.x * 0.0090)\n  .modulate(o0,0,1)\n.modulateScale(osc(2).rotate(Math.sin(time)),.2)\n.thresh(0.7,0.99)\n\t.modulateRotate(osc(6),2,5)\n\n  .out(o0)\n"
+  },
+  {
+    "sketch_id": "0Bg9xdID8UqgOZ8X",
+    "code": "//crea distintas variables para reemplazar los números del código, luego modifica el número de las variables y fíjate que sucede.\n//create different variables to replace the numbers in the code, then modify the number of the variables and see what happens.\n\nosc(60,1.8,0.9).repeat(9,8).kaleid(30).scrollX(3.2,0.9).scrollY(2.8,1.8).out()\n"
+  },
+  {
+    "sketch_id": "0BjDZiC72On2yCUl",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// moire\n// by Olivia Jack\n// twitter: @_ojack_\n\npattern = () => osc(200, 0).kaleid(200).scale(1, 0.4)\n//\npattern()\n  .scrollX(0.1, 2)\n  .mult(pattern())\n  .out()\n"
+  },
+  {
+    "sketch_id": "0BjlKSatoFUQYj6C",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nawait loadScript(\"https://cdn.statically.io/gl/metagrowing/extra-shaders-for-hydra/main/lib/lib-pattern.js\")\n\na = () => 0.137 * time;\nspiral(2.0, 5.0, 0.3).rotate(() => -2.0 * a()).out(o0)\nspiral(2.0, 5.0, 0.3).rotate(a).diff(concentric(100.0,0.25,0.25)).out(o1)\nspiral(2.0, 5.0, 0.3).rotate(a).mult(spiral(1.0, 3.0, 0.3)).out(o2)\nspiral(1.0, 5.0, 0.1).rotate(a).diff(brick()).out(o3)\nrender()\n\n\n"
+  },
+  {
+    "sketch_id": "0BlUvY9W9ZEC1lDs",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// 3.0\n// by ΔNDR0M3DΔ\n// https://www.instagram.com/androm3_da/\n\n\nnoise(3,0.3,3).thresh(0.3,0.03).diff(o3,0.3).out(o1)\ngradient([0.3,0.3,3]).diff(o0).blend(o1).out(o3)\nvoronoi(33,3,30).rotate(3,0.3,0).modulateScale(o2,0.3).color(-3,3,0).brightness(3).out(o0)\nshape(30,0.3,1).invert(({time})=>Math.sin(time)*3).out(o2)\n\nrender(o3)\n\n"
+  },
+  {
+    "sketch_id": "0Bod3ZG1WodUVgCN",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//Septième\n//https://www.instagram.com/theseptieme/\n//The Peak is Coming\n\nosc(50,0.00070,0)\n  .diff(osc(7,0,001,700)\n       .rotate(Math.PI/0.07))\n  .modulateScale(noise(50,0.4)\n                 .modulateScale(osc(10)\n                                .rotate(()=>Math.sin(time)),3))\n  .color(2,1,1)\n  .contrast(74)\n  .modulateScale(osc(10,25),-0.2, 2, 1, 0.3)\n  .rotate( () => time%360 *0.5)\n  .out(o0)\n\n"
+  },
+  {
+    "sketch_id": "0Bokx2V4ttvnX7Ia",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Monochrome Memoar\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nvoronoi(50,1)\n  .luma(0.5).add(shape(1,1).luma(1))\n  .modulate(osc(-1000,-1)\n            .modulate(osc().luma()))\n  .blend(o0)\n  .blend(o0)\n  .blend(o0)\n  .blend(o0)\n  .out()\n"
+  },
+  {
+    "sketch_id": "0BsA2dukaopiVMYh",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// 3.3\n// by ΔNDR0M3DΔ\n// https://www.instagram.com/androm3_da/\nosc()\n\t.modulateRotate(o0, 0.097)\n\t.out();\nosc(33, 0.3, 0.3)\n\t.diff(o3, 3)\n\t.out(o1);\nosc(3, 0.3, 33)\n\t.modulateKaleid(o3, 3)\n\t.diff(o0)\n\t.out(o2);\nsrc(o0, 3)\n\t.mult(o1, 3)\n\t.kaleid(2.786)\n\t.out(o3);\nrender(o2);"
+  },
+  {
+    "sketch_id": "0Bsj0cmJQDTvm4FI",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(18, 0.1, 0).color(2, 0.1, 2)\n.mult(osc(20, 0.01, 0)).repeat(2, 20).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(20, 0.2, 0).color(2, 0.7, 0.1).mult(osc(40)).modulateRotate(o0, 0.2)\n.rotate(0.2).out(o1)\n"
+  },
+  {
+    "sketch_id": "0BzCipQuj7Ld6YbW",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Cellular & Blobular\n// by Mahalia H-R\n// IG: mm_hr_\nspeed = 0.274;\nshape(20, 0.2, 0.3)\n\t.color(0.5, 0.8, 50)\n\t.scale(() => Math.sin(time) + 1 * 2)\n\t.repeat(() => Math.sin(time) * 10)\n\t.modulateRotate(o0)\n\t.scale(() => Math.sin(time) + 1 * 1.5)\n\t.modulate(noise(3.812, 2))\n\t.rotate(1, .2)\n\t.out(o0);"
+  },
+  {
+    "sketch_id": "0BzqWSSrx4F5BuyG",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//\"Ángel Jara\"\n\nosc(3,1,1)\n\t.mask(shape(4))\n\t.modulateScale(noise([7,10,20,3,50,70,5,15,1,32]))\n\t.pixelate(15,180)\n.out()\n"
+  },
+  {
+    "sketch_id": "0C5RwsKQ3xbO7LVk",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(18, 0.1, 0).color(2, 0.1, 2)\n.mult(osc(20, 0.01, 0)).repeat(2, 20).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(20, 0.2, 0).color(2, 0.7, 0.1).mult(osc(40)).modulateRotate(o0, 0.2)\n.rotate(0.2).out(o1)\n"
+  },
+  {
+    "sketch_id": "0CCB7mUcsfheTMJr",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n\nosc(40,0,1.5).mult(osc(60,-0.1)).add(osc(30,-.1)).modulateRotate(shape(99,0,1).repeat(8,8).add(noise(9,0),.3)).mult(noise(12,-0.5).luma().thresh(0,.9)).scale(1,9/16).hue(0.5).out(o0)\nsrc(o0).pixelate(128, 320).blend(o0).mult(o0).posterize().hue(-4).diff(shape(3)).out(o1)\nosc(40, 0.1, Math.PI/2).r(115).rotate(.2).kaleid(33).mask(o1).pixelate(160,160).out(o2)\nsrc(o2).diff(o1).out(o3)\nrender()\n"
+  },
+  {
+    "sketch_id": "0CKhwkODsWKk0Qcu",
+    "code": "\nosc(20,-0.3,1.5)\n\t.out()\n"
+  },
+  {
+    "sketch_id": "0CXSzijvsTRD6iMP",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Galaxy Trip\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nshape(1,1)\n  .mult(voronoi(1000,2)\n  .blend(o0).luma())\n  .add(shape(3,0.125)\n       .rotate(1,1).mult(voronoi(1000,1).luma())\n       .rotate(1.5)).scrollX([0.1,-0.0625,0.005,0.00001],0)\n  .scrollY([0.1,-0.0625,0.005,0.00001],0)\n  .out()\n"
+  },
+  {
+    "sketch_id": "0Cv4M4fbFEc7e9vM",
+    "code": "voronoi(22,2.5,1.5).contrast( ({time}) => Math.sin(3) * 8).color(148, 0, 211)\n.scale(0.7).blend(shape(2),[0.25,0.5,0.75,10]).color(255, 20, 147)\n  .modulateRotate(osc(1,0.5,0).kaleid(50).scale(0.5),15,0)\n  .mult(osc(50,-0.1,8).kaleid(9))\n  .out(o0)\n    \n    \n"
+  },
+  {
+    "sketch_id": "0CvbqL6BpWYbwNy5",
+    "code": "//Ángel Jara\nosc([20,4,5,8,3,100],0.3,[4,20,15,3,8])\n.modulate(osc(30,1))\n.luma()\n.out()"
+  },
+  {
+    "sketch_id": "0CxFYr3ShGzhDyn6",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nawait loadScript(\"https://cdn.jsdelivr.net/gh/geikha/hyper-hydra@latest/hydra-outputs.js\")\no0.setNearest()\no1.setLinear()\n\nsrc(o0)\n .layer(osc(30,.2,1).mask(shape(4,.5,0)))\n .scale(1.01).rotate(.01)\n .out(o0)\n\nsrc(o1)\n .layer(osc(30,0.005,2.0).mask(shape(4,.12,0.01)))\n .scale(0.89, 1.1).rotate(2.0,0.005).scrollX(0.4,0.0).scrollY(0.5,0.0).kaleid(6.0). hue(()=>0.003*time+0.55).rotate(1,0.2).color(1.4,0.6)  \n .out(o1)\n\nrender(o1)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+  },
+  {
+    "sketch_id": "0DESKC1LM3rYIARc",
+    "code": "//@hoynoestarey\n\nnoise(3,0.6,9)\nvoronoi(800,0.25)\n\n\n.out()"
+  },
+  {
+    "sketch_id": "0DVzHdP26ISiLPUq",
+    "code": "// by Santiago Ramírez Camarena\n// IG: ramirez.camarena\n\nshape(6,0.1,0.2)\n.scale(1,1).repeat(8,1).rotate(()=>time*0.0001)\n.scrollY(0.1,-0.5).scale((0.5,0.5),0.4)\n.mult(osc(5,4,5)).color(1,0.1)\n.repeat(0.5,8)\n.rotate(()=>time*0.1)\n.kaleid(5)\n.blend(osc(1,2,1),0.3)\n.out()\n"
+  },
+  {
+    "sketch_id": "0DYc0WaaEBdWHqON",
+    "code": "(async() => {\n    // Pulsating sunflower\n// by Powlow\n// https://Powlow.com\nvoronoi(3,3,3)\n.modulateKaleid(osc(11,0.5,0),50)\n.scale(0.03,0.03)\n.modulate(noise(3,0.01))\n.mult(noise(3,1))\n.scrollY(0.1,0.05)\n.scrollX(0.1,0.1)\n.saturate( ({time}) => Math.sin(time) * 10 )\n.kaleid(20)\n.invert(0)\n.color(200,13,0)\n  .out(o0)\n})().catch(err=>log(err.message,\"log-error\"))"
+  },
+  {
+    "sketch_id": "0Dg8IaolVTdmWcLw",
+    "code": "//Fantastic Planet\nb = ()=>a.fft[0]\nm = ()=>a.fft[2]\nh = ()=>a.fft[3]\nosc(24,0)\n  .rotate(1.6)\n  .modulateScrollY(osc(6.25),b,b)\n  .out(o0)\nosc(48,0)\n  .rotate(1.6)\n  .modulateScrollY(osc(24),h,m)\n  .color(1,1,1)\n  .luma(0.8)\n  .out(o1)\nshape(100,0.5,0.0001)\n  .color(0.9,0.9,1)\n  .mult(o1,0.9)\n  .luma(0)\n  .out(o2)\nnoise(200)\n  .mask(o0)\n  .layer(o2)\n  .out(o3)\nrender(o3)"
+  },
+  {
+    "sketch_id": "0DgKRBZ59tHA7bGo",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Mahalia H-R\n// IG: @mm_hr_\n\nshape(20,0.1,0.01)\n  .scale(() => Math.sin(time)*3)\n  .repeat(() => Math.sin(time)*10)\n  .modulateRotate(o0)\n  .scale(() => Math.sin(time)*2)\n  .modulate(noise(2,0))\n  .rotate(0.1, 0.9)\n.out(o0)\n\nsrc(o0)\n.modulate(osc(500,0,0))\n.out(o1)\n\nsrc(o1)\n.modulateKaleid(voronoi(() => Math.sin(time)*3,0.1,0.01),() => Math.sin(time)*3)\n.scale(() => Math.sin(time)*3)\n.out(o2)\n\nrender(o2)\n"
+  },
+  {
+    "sketch_id": "0DvjhiGb0pCuiiVL",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n // Puertas II\n// por Celeste Betancur\n// https://github.com/essteban\n\nosc(13,0,1)\n  .kaleid()\n  .mask(shape(4,0.3,1))\n  .modulateRotate(shape(4,0.1,1))\n  .modulateRotate(shape(4,0.1,0.9))\n  .modulateRotate(shape(4,0.1,0.8))\n  .scale(0.3)\n  .add(shape(4,0.2,1).color(0.3,1,1,0.5))\n  .rotate(()=>time)\n  .out()\n"
+  },
+  {
+    "sketch_id": "0E43Yh2pYh1Qem4W",
+    "code": "//Puddles moving through the dots\n//@HirotoshiUchida \nvoronoi(20,1,5).contrast(3).layer(shape(4,[0,1].smooth(),[0,1].reverse().smooth()).sub(osc().luma()).mask(osc().luma().rotate(1.57)).repeat()).modulate(src(o0).scale([1,5].smooth().fast(1/5))).scale([3/2,3].reverse().smooth().fast(1/2)).out()"
+  },
+  {
+    "sketch_id": "0E9BIT3eWqZ2JQGd",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//random trypophobia - changes everytime you load it!\n//by Ritchse\n//instagram.com/ritchse\n \nfunction r(min=0,max=1) { return Math.random()*(max-min)+min; }\n \nsolid(1,1,1)\n  \t.diff(shape([4,4,4,24].smooth().fast(.5),r(0.6,0.93),.09).repeat(20,10))\n\t.modulateScale(osc(8).rotate(r(-.5,.5)),.52)\n\t.add(\n  \t\tsrc(o0).scale(0.965).rotate(.012*(Math.round(r(-2,1))))\n  \t\t.color(r(),r(),r())\n    \t.modulateRotate(o0,r(0,0.5))\n  \t\t.brightness(.15)\n  \t\t,.7)\n\t.out()\n"
+  },
+  {
+    "sketch_id": "0EB3tSzP2oLDUQYG",
+    "code": "\ngradient().hue(-.15).scale(1.5)\n.layer(gradient().hue().scale(1.5).mult(noise(2,.1).thresh().luma()))\n\n.diff(gradient().hue(.2).scale(1.5).mult(osc(2,.1).thresh().luma())\n     .modulate(noise(5,.1))\n      .modulateRotate(src(o0))\n     )\n\n\n.saturate()\n\n.modulate(noise(2000),.02)\n\n.mult(shape(4,.6).repeat(4,4))\n.modulate(osc(20,.1).thresh(.5).rotate(Math.PI/2.1)\n         \n         .modulate(noise(1,.1).thresh())\n         )\n.blend(src(o0).scrollX(.0025,.1),.5)\n.out()\n\n//hush()"
+  },
+  {
+    "sketch_id": "0EF1gWlA220f5bJI",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n // \"eye of the beholder\"\n// Alexandre Rangel\n// www.alexandrerangel.art.br/hydra.html\n\nnoise(6,.05)\n.mult( osc(9,0, ()=>Math.sin(time/1.5)+2 ) )\n.mult(\n    noise(26,.03).brightness(1.2).contrast(2)\n    .mult( osc(9,0, ()=>Math.sin(time/3)+13 ) )\n)\n.diff(\n    noise(15,.04).brightness(.2).contrast(1.3)\n    .mult( osc(9,0, ()=>Math.sin(time/5)+13 ) )\n    .rotate( ()=>time/33 )\n)\n.scale( ()=>Math.sin(time/6.2)*.12+.15 )\n.modulateScale(\n    osc(3,0,0).mult( osc(3,0,0).rotate(3.14/2) )\n    .rotate( ()=>time/25 ).scale(.39).scale(1,.6,1).invert()\n    , ()=>Math.sin(time/5.3)*1.5+3  )\n.rotate( ()=>time/22 )\n.mult( shape(100,.9,.01).scale(1,.6,1) )\n.out()\n"
+  },
+  {
+    "sketch_id": "0ELYvWY3w9hrg2nN",
+    "code": "osc(100, Math.cos(time * 0.5) * 0.5, Math.sin(time * 2) * 1.5)\n  .luma()\n  .kaleid([3, 2, 3, 8])\n  .rotate(Math.sin(time * 0.25), Math.cos(time * 0.5) * -2.5)\n  .rotate(-25, Math.sin(time * 2) * 0.5)\n  .modulate(noise(Math.sin(time * 20.5) * Math.tan(time * 10.25) * Math.cos(time), 1.25))\n  .kaleid([4, 4, 8, 16, 3, 3, 2, 5, 20])\n  .modulate(noise((Math.cos(time * 0.25) * 0.5) + Math.tan(1/time * 10.5)))\n.out(o0)\n\n\n\n\n\n"
+  },
+  {
+    "sketch_id": "0ELxL6XTqIamnizf",
+    "code": "noise([2,6,3])\n.pixelate(20,20)\n.modulate(voronoi(25,0.1,0.5)\n              .scale(({time})=>Math.sin(time*1)*0.5+1)\n              .modulate(noise(0.6,0.5)),\n              0.5)\n.color(0,1,3)\n.add(noise(2),[0,1,3,0.75,2])\n.modulateScale(osc(4,-0.5,0).kaleid(50).scale(0.5),15,0)\n  .modulateRepeat(osc(10), 3.0, 3.0, 0.5, 0.5)\n      .color(0,1,3)\n      .modulateRepeatX(noise(5), 5.0, ({time}) => Math.sin(time) * 3.5)\n.add(noise(10, 0.1))\n      .color(0,1,3)\n.modulateKaleid(osc(11,0.5,0),50)\n  //.scale(0.1,0.3)\n  .modulate(noise(5,0.1))\n  .mult(solid(1,1,0.3))\n\n\n\n\n\n\n\n\n\n.out(o0)"
+  },
+  {
+    "sketch_id": "0EbSAB4effFV1Fzp",
+    "code": "osc()\n  .layer(osc(10,0.1,10).mult(shape(3).repeatY(3.0, 0.0).repeatX(3.0, 0.0))).pixelate(1000, 1000).add(noise(5), ()=>Math.tan(time))\n  .modulateRotate(src(o0).rotate(0, -1), 0.5).mult(shape(180), 0.3)\n  .out()"
+  },
+  {
+    "sketch_id": "0EpskFkPFz2DFu7j",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//CNDSD\n//http://malitzincortes.net/\n//ameba\n\nosc(15, 0.01, 0.1).mult(osc(1, -0.1).modulate(osc(2).rotate(4,1), 20))\n.color(0,2.4,5)\n.saturate(0.4)\n.luma(1,0.1, (6, ()=> 1 + a.fft[3]))\n.scale(0.7, ()=> 0.7 + a.fft[3])\n.diff(o0)// o0\n.out(o0)// 011111\n"
+  },
+  {
+    "sketch_id": "0Es0OJuO6pQYgY7J",
+    "code": "// by Harry Harrison\n// toothpaste1\n// 2020-03-13\n\nosc(60,-0.01,0.4)\n  .modulateRotate(osc(12,0.1).rotate(0,0.08))\n  .modulateScale(osc(2,0.06).rotate(0,0.5))\n  .mult(gradient(0.2).rotate(0,0.4),0.5)\n  .hue(0.4).colorama(-0.05)\n  .out(o0)\n"
+  },
+  {
+    "sketch_id": "0Euzlyf3Knc8ki8I",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(2,0,2)\n  .modulate(voronoi(2))\n  .out()\n"
+  },
+  {
+    "sketch_id": "0EzNS0GxUDdsEbLk",
+    "code": "(async() => {\n    \n \n // Some TV shi idk\n// By @TheArtistJohn32 Tweeter\nshape( 4, 0.2, 0.1)\n  .repeat(2)\n  .modulateScale(shape(4,0.3,0.2).rotate(0.3).scrollY(0.5, 2))\n  .blend(osc().color(0.1,0.6,0.45).kaleid(32).repeat())\n  .add(osc(255,0.4, 79).scrollY(0.7, 4).rotate(34,5).modulateScrollX(osc(10),0.5,0))\n  .blend(gradient(7).invert())\n.add(shape(11, 0.3, 1) .modulateScrollY(osc(100),0.34,0))\n  .out(o0)\n\n})().catch(err=>log(err.message,\"log-error\"))"
+  },
+  {
+    "sketch_id": "0F054bqKKAuSzOQ3",
+    "code": "//q\n\nnoise(10, 0.1)\n  .diff(osc(13,0.5,5))\n  .colorama(1)\n  .luma(0.7)\n  .out(o1)\n\nosc(6,0.25,2)\n  .mask(shape(4,0.6))\n  .mask(voronoi(1,3))\n  .out(o2)\n\nsrc(o1)\n  .diff(o2)\n  .out(o0)"
+  },
+  {
+    "sketch_id": "0F6nXO2m127VjxZV",
+    "code": "(async() => {\n     // Puertas II\n// por Celeste Betancur\n// https://github.com/essteban\n\nosc(13,0,1)\n  .kaleid()\n  .mask(shape(4,0.3,1))\n  .modulateRotate(shape(4,0.1,1))\n  .modulateRotate(shape(4,0.1,0.9))\n  .modulateRotate(shape(4,0.1,0.8))\n  .scale(0.3)\n  .add(shape(4,0.2,1).color(0.3,1,1,0.5))\n  .rotate(()=>time)\n  .out()\n})().catch(err=>log(err.message,\"log-error\"))"
+  },
+  {
+    "sketch_id": "0F7If3h6W2ahUJCG",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// 3.0\n// by ΔNDR0M3DΔ\n// https://www.instagram.com/androm3_da/\n\n\nnoise(3,0.3,3).thresh(0.3,0.03).diff(o3,0.3).out(o1)\ngradient([0.3,0.3,3]).diff(o0).blend(o1).out(o3)\nvoronoi(33,3,30).rotate(3,0.3,0).modulateScale(o2,0.3).color(-3,3,0).brightness(3).out(o0)\nshape(30,0.3,1).invert(({time})=>Math.sin(time)*3).out(o2)\n\nrender(o3)\n\n"
+  },
+  {
+    "sketch_id": "0FCP9No7VnYRkzZq",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// disintegration\n// by Ritchse\n// instagram.com/ritchse\n \nosc(5,.1).modulate(noise(9),.22).diff(o0)\n  \t.modulateScrollY(osc(2).modulate(osc().rotate(),.11))\n\t.scale(.72).color(0.99,1.014,1)\n  \t.out()\n"
+  },
+  {
+    "sketch_id": "0FTOfN2oHe5WuANS",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nosc(100, 11, 15)\n  .color(4, 0.01, 0.5)\n  .rotate(0.1)\n  .modulate(noise(20, -0.8))\n  .mult(voronoi(15,30).color(1, 3, 30))\n  .blend(o0, 0.9)\n  .out(0)\n"
+  },
+  {
+    "sketch_id": "0FXG1p4SlF2DIyMv",
+    "code": "shape(99, 0.2, 3).scale(1.1)\n .thresh(1,0.1,3).color(5,1.9,3).brightness(0.01)\n .rotate(1, 0.8)\n.diff(osc(999,99,0)).brightness(0.2)\n .modulate(o0, () => mouse.x * 0.0002)\n .modulateScrollX(osc(10),0.7,0.25)\n    .out(o0)"
+  },
+  {
+    "sketch_id": "0FYLyQ339ZsLhukm",
+    "code": "// by Olivia Jack\n\nosc(20, 0.03, 1.7).kaleid().mult(osc(20, 0.001, 0).rotate(1.58)).blend(o0, 0.94).modulateScale(osc(10, 0),-0.03).scale(0.8, () => (1.05 + 0.1 * Math.sin(0.05*time))).out(o0)"
+  },
+  {
+    "sketch_id": "0FiXT4H2k7KSgdpd",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter"
+  },
+  {
+    "sketch_id": "0Fm6tdvDPVFhVuN0",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Olivia Jack\n// https://ojack.github.io\n\nosc(100, 0.01, 1.4)\n\t.rotate(0, 0.1)\n\t.mult(osc(10, 0.1).modulate(osc(10).rotate(0, -0.1), 1))\n\t.color(2.83,0.91,0.39)\n  .out(o0)\n"
+  },
+  {
+    "sketch_id": "0FsyghvykbgL33Gh",
+    "code": "\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nshape(4, 0.3, 1).modulate(noise(20, 0.2)).add(osc(20, 0.1, 2), 0.75).kaleid(5).rotate(60, 0.5).out(o0)"
+  },
+  {
+    "sketch_id": "0FtMvcPDShEMH6Vo",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\nawait loadScript(\"https://cdn.jsdelivr.net/gh/geikha/hyper-hydra@latest/hydra-outputs.js\")\n\no0.setNearest()\no1.setLinear()\n\nsrc(o0)\n .layer(osc(30,.2,1).mask(shape(4,.1,0)))\n .scale(1.01).rotate(.01)\n .out(o0)\n\nsrc(o1)\n .layer(osc(30,.2,1).mask(shape(4,.1,0)))\n .scale(1.01).rotate(.01).scrollY(9) \n .out(o1)\n\nrender()\n\n"
+  },
+  {
+    "sketch_id": "0FzaqXfCWIhPPnBu",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Perpetual elevator buttons\n// By Khoparzi\n// http://khoparzi.com\nshape(3,0.01,0.4). repeat(9, 5) \n\t.add(osc(19,0.4,5), 0.09)\n\t.add(o1, 0.8)\n\t.scale(1) \n\t.rotate(0, -0.1)\n\t.out(o1);\n// .repeat(5)\nsrc(o1)\n\t.rotate(0, 0.1)\n\t.out();"
+  },
+  {
+    "sketch_id": "0GLCIhOiisoVEMSq",
+    "code": "//www.twoforlarry.com\nosc(1.5625,.25,1.74)\n  .modulate(o2,1)\n  .diff(src(o0).rotate(1.57))\n  .out(o0)\nsrc(o1)\n  .add(src(o1).scroll(.25,.25),1)\n  .scroll(0,0,.0625,.0625)\n  .rotate(0,.0625)\n  .out(o2)\nshape(90,.01,.8)\n  .repeat(2,2,0,0)\n  .out(o1)"
+  },
+  {
+    "sketch_id": "0GW93129sGFUULbJ",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Puertas III\n// por Celeste Betancur\n// https://github.com/essteban\n \nosc(40,0.2,1)\n  .rotate(0)\n  .out()"
+  },
+  {
+    "sketch_id": "0GZJ06H5OM1OAyUY",
+    "code": "//ENZZO CALLEGARI\n//ZOEN_CALEGA\nshape(2)\n.mult(osc(13,0.5,5))\n.modulateRepeatX(osc(8), 5.0, ({time}) => Math.sin(time) * 1)\n.repeat(1.0, 2.0, 0.0, 0.0)\n.out(o0)\n\n\n\nrender(o0)\n "
+  },
+  {
+    "sketch_id": "0GjjNVCKYPI7JyqQ",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Mahalia H-R\n// IG: @mm_hr_\n\nshape(() => Math.sin(time)+1*2)\n.rotate(() => Math.PI * mouse.x /180)\n.repeatX(3)\n.repeatY(()=>Math.sin(time)*5)\n.scale(() => Math.PI/4)\n.blend(src(o0).color(1,0,0))\n.modulate(osc(20, 0,.4))\n.kaleid(2)\n .out(o0)\n\nrender(o0)\n"
+  },
+  {
+    "sketch_id": "0GnUTEOZGYt2JsDp",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Aqautic blubs\n// By Khoparzi\n// https://khoparzi.com\n\ngradient(0.25)\n.add(noise(), ()=>Math.cos(time))\n.modulateRotate(src(o0).rotate(0, -0.52), 0.2).mult(shape(360), 0.8)\n.repeat(10,5).mult(shape(360).scale(()=>Math.sin(time)), 0.8).rotate(0, 0.2)\n.diff(src(o0).rotate(0, -0.2), 0.2)\n.out()\n"
+  },
+  {
+    "sketch_id": "0GsFxnF1fMhkWLXg",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Countdown-ish - @wispeh_\nosc(3, 2, 1)\n\t.modulate(voronoi(3, 2, 1), 3)\n\t.kaleid(5)\n\t.layer(noise(4)\n\t\t.modulate(osc(32), 1)\n\t\t.luma(.1))\n\t.diff(shape(2, .4)\n\t\t.color(.07, .05, 2)\n\t\t.hue(() => Math.sin(.1 * time)))\n\t.blend(o0, .1)\n\t.blend(o0, .1)\n\t.modulateScale(o0, -.9)\n\t.blend(o0, .1)\n\t.modulateScale(o0, .3)\n\t.saturate(.07)\n\t.blend(src(o0)\n\t\t.saturate(2)\n\t\t.luma(.25))\n\t.contrast(1.00099)\n\t.rotate(0.097)\n\t.out(o0)\nsrc(o0)\n\t.modulateHue(noise(32, .1)\n\t\t.colorama(5.1)\n\t\t.pixelate(100, 50), 150)\n\t.blend(o0, .7)\n\t.modulateScale(o0, .1)\n\t.out(o1)\nrender(o1)\n"
+  },
+  {
+    "sketch_id": "0GvzEly66avK28yd",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// ee_2 . MULTIVERSE . time and feedback\n// e_e // @eerie_ear\npat = ()=>\nsolid()\n.layer(solid().diff(\n  osc((time/16) * 1, (time/1000) * 0.2  )\n    .mult(osc((time/8) * 1, (time/1006) * 0.2  ).rotate(1.57))\n    .modulate((shape(106,1,0.05)))\n    .mult(shape(106,1,0.05))\n  ))\n  .modulateScale(osc(2,0.125),0.125)\n//\nsolid()\n.layer(solid(1,1,1)\n  .mult(pat()\n  .diff(src(o0).scale(0.2).mult(solid(),[0.7,0.6,0.4,0.6]).kaleid(1.01).saturate(0.3))\n)\n.layer(solid(1,1,1)\n    .mask(\n      noise(2,0.05)\n      .invert().colorama(2).posterize(8,4).luma(0.25).thresh(0.5)\n      .modulateRotate(osc(1,0.5))\n    )\n    .mult(gradient(0.5).kaleid(1).colorama(2).saturate(1.1).contrast(1.6).mult(solid(),0.45))\n  ))\n  .out()\n//\nspeed= 0.5\n\n"
+  },
+  {
+    "sketch_id": "0HHDSFQhyC6kUaqJ",
+    "code": "// 🌿 15. Movimiento de algas marinas\nosc(12, 0.05, 0.5).modulateScrollY(osc(3, 0.01)).color(0, 0.7, 0.3).out()"
+  },
+  {
+    "sketch_id": "0HJ34eXDiAVPqAqt",
+    "code": "osc(3, 0.01, 0.4)\n.color(3,1,1.3)\n.saturate(0.2)\n.modulateRepeat(osc(2),1, 2, 4, 3)\n.modulateKaleid(osc(12,0.05,0),1)\n.luma (0.4)\n.rotate(4, 0.1,0)\n.scale(1).diff(o1)\n.out(o0)\n\n\n"
+  },
+  {
+    "sketch_id": "0HWoDcrz0VS7JK9g",
+    "code": "// Puertas III\n// por Celeste Betancur\n// https://github.com/essteban\n \nosc(1,0.9,2)\n  .modulateScale(osc(10,0,3).kaleid(5))\n  .repeat(5,7)\n  .modulate(o0,0.08)\n  .modulateKaleid(shape(3,0.3,2))\n  .out(o0)"
+  },
+  {
+    "sketch_id": "0HZx5gYWUl2gUUYn",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//port\n//by Marianne Teixido\n//https://marianneteixido.github.io/\n\nosc(5, 0.9, 0.001)\n    .kaleid([3,4,5,7,8,9,10].fast(0.1))\n    .color(0.5, 0.3)\n    .colorama(0.5)\n    .rotate(0.009,()=>Math.sin(time)* -0.001 )\n    .modulateRotate(o0,()=>Math.sin(time) * 0.003)\n    .modulate(o0, 0.9)\n    .scale(0.9)\n    .out(o0)\n\n\n"
+  },
+  {
+    "sketch_id": "0HbVZnlGUoOAY4yr",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//random trypophobia - changes everytime you load it!\n//by Ritchse\n//instagram.com/ritchse\n \nfunction r(min=0,max=1) { return Math.random()*(max-min)+min; }\n \nsolid(1,1,1)\n  \t.diff(shape([4,4,4,24].smooth().fast(.5),r(0.6,0.93),.09).repeat(20,10))\n\t.modulateScale(osc(8).rotate(r(-.5,.5)),.52)\n\t.add(\n  \t\tsrc(o0).scale(0.965).rotate(.012*(Math.round(r(-2,1))))\n  \t\t.color(r(),r(),r())\n    \t.modulateRotate(o0,r(0,0.5))\n  \t\t.brightness(.15)\n  \t\t,.7)\n\t.out()\n"
+  },
+  {
+    "sketch_id": "0HclL6K24SmM0aS5",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Perpetual elevator buttons\n// By Khoparzi\n// http://khoparzi.com\n\nshape(3).add(osc(-10,2.0,4), 1)\n\t.add(o1, () => (Math.sin(time/4) * 0.7 + 0.1))\n\t//.repeat(5)\n  \t.scale(()=>Math.sin(time / 16)).rotate(0, -0.1)\n\t.out(o1)\n\nsrc(o1)\n  .rotate(0,0.1)\n  .out()\n"
+  },
+  {
+    "sketch_id": "0I8Q9z4Ti3ULZTaT",
+    "code": "//A stream of smoke in a clear glass\n//@HirotoshiUchida \nosc(30,1/8,300).luma().modulateRotate(src(o0).thresh(),Math.PI/2).modulateScrollX(shape(4,.4,.6).colorama(3).thresh()).modulateScrollY(shape(2,.3,.7).repeatX(2).luma()).sub(src(o0).scale([.99,1.01].smooth()).scroll(()=>(time/10),()=>(time/-10))).out()"
+  },
+  {
+    "sketch_id": "0I9jCKjDtC49ViN7",
+    "code": "osc(9,1,5)\n.modulateKaleid(noise(12,0.5,3),3)\n.modulatePixelate(noise(12,0.5))\n.rotate(3,[-0.3,0.3])\n.rotate(3,0.1)\n.mult(shape(3).rotate(3,[0.3,-0.3]))\n.mult(shape(3).rotate(3,[-0.3,0.3]))\n.repeat(3,3)\n.rotate(3,2)\n.add(osc(9,0.9,5).rotate(3,-0.3))\n.mult(osc(9,0.9,2).rotate(3,0.3))\n.out()"
+  },
+  {
+    "sketch_id": "0II4DB8msCN87TFX",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Puertas III\n// por Celeste Betancur\n// https://github.com/essteban\n \nosc(40,0.2,1)\n  .modulateScale(osc(40,0,1).kaleid(8))\n  .repeat(2,4)\n  .modulate(o0,0.05)\n  .modulateKaleid(shape(4,0.1,1))\n  .out(o0)\n"
+  },
+  {
+    "sketch_id": "0IIztlMxg36rMZYa",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nshape(99, 0.5, 0)\n  .out(o0)\n\nosc(60,-0.1,0)\n  .kaleid(50)\n  .color(1, 0, .8)\n  .mask(o0)\n  .scrollX([-0.2, 0.2].smooth())\n  .out(o1)\n\nrender(o1)\n"
+  },
+  {
+    "sketch_id": "0IJ2H5c8IDTq8iFQ",
+    "code": "shape(6,0.8)\n//.pixelate()\n.diff(src(o0)\n.scale(0.9))\n.repeat(2,1)\n.out()"
+  },
+  {
+    "sketch_id": "0IU3aw3WhGYdaUNn",
+    "code": "noise(2, 2)\n  .color(1, 0, 0)\n  .add(noise(3, 1).color(0, 1, 0))\n  .diff(noise(1, 1).color(0, 0, 1))\n  .contrast(1.1)\n  .diff(shape(6,0.6).repeat(5,5).rotate(1,1).kaleid(3).rotate(1,0.3).color(1,1,0))\n  .blend(o0, 0.94)\n  .modulatePixelate(o0, 400, 120)\n  //.modulateScale(o0, -0.04)\n  //.modulateScale(o0, 0.05)\n  .modulateScale(o0, -0.08)\n  .modulateScale(o0, 0.08)\n  .saturate(0.93)\n  .hue(0.0)\n  .saturate(1.1)\n  .color(1, 0.97, 0.9)\n  .modulateScale(noise(3, 0.1), 0.05)\n  .out();\nsolid(.1,0,0.4).layer(src(o0)\n  .saturate(0.0)\n  .invert()\n  .luma(0.9)\n                      .layer(src(o0).luma(0.3).hue(-0.6)))\n.layer(src(o0).pixelate(300,100).mask(shape(2,0.5).kaleid(2)).colorama(0.2).hue(0.4))\n.layer(src(o0).pixelate(100,400).mask(shape(2,0.5).kaleid(2).rotate(1,1).kaleid(2).mask(shape(6).rotate(Math.PI/6).invert())).colorama(0.3).hue(0.2))\n  .contrast(1.2)\n  .hue(0.2)\n  .out(o1);\nrender(o1);\n"
+  },
+  {
+    "sketch_id": "0IY7VC1C3bGzfzL3",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n \n // Type some code on a new line (such as \"osc().out()\"), and press CTRL+shift+enter\nosc(9,0.4,()=>time*0.9).modulateScale(noise(9,0.4),0.5).color(2).hue(()=>time*0.4).kaleid(9).modulateRotate(noise(2)).modulateKaleid(shape(3,0.3),9.0).out(o0) \n"
+  },
+  {
+    "sketch_id": "0Ic2VOClb5jM2h28",
+    "code": "shape (3,0,0.25)\n//Agrega mas parámetros al vector de los \"offset\" para que la figura se mueva.\n//Add more parameters to the \"offset\" vector so that the figure moves.\n.scale ([0.1,0.2,0.3,0.4,0.5,0.7].fast(20)\n,1\n,1\n//OffsetX\n,[-0.1].fast(1)\n////OffsetY\n,0.5)\n.out()"
+  },
+  {
+    "sketch_id": "0IdkuyuoyIfZeuYF",
+    "code": "function r(min=0,max=1) { return Math.random()*(max-min)+min; }\n \n\nfunction getRandom(min = 0, max = 1) {\n    return Math.random() * (max - min) + min;\n}\nsolid(getRandom(),0,getRandom())\n  \t.diff(shape([3,2,4,4,4,24].smooth().fast(.25)).repeat(20,15))\n\t.modulateScale(voronoi(1).rotate(r(-.5,.5)),.52)\n\t.add(\n  \t\tsrc(o0).scale(0.965)\n  \t.color(r(),r(.1, .5),r())\n    \t.modulateRotate(o0,r(0,0.5))\n  \t\t.modulate(osc(3,0)))\n\t.out()"
+  },
+  {
+    "sketch_id": "0IkdazKGCpwahHaC",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Rodrigo Velasco\n// https://yecto.github.io/\n\nosc(18, 0.1, 0).color(2, 0.1, 2)\n.mult(osc(20, 0.01, 0)).repeat(2, 20).rotate(0.5).modulate(o1)\n.scale(1, () =>  (a.fft[0]*0.9 + 2)).diff(o1).out(o0)\nosc(20, 0.2, 0).color(2, 0.7, 0.1).mult(osc(40)).modulateRotate(o0, 0.2)\n.rotate(0.2).out(o1)\n"
+  },
+  {
+    "sketch_id": "0IpCX1OK5WbDEm4b",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// clouds of passage\n// by Nesso\n// www.nesso.xyz\nshape([4, 5, 6].fast(0.1)\n\t\t.smooth(1), 0.000001, [0.2, 0.7].smooth(1))\n\t.color(0.2, 0.4, 0.3)\n\t.scrollX(() => Math.sin(time * 0.27))\n\t.add(shape([4, 5, 6].fast(0.1)\n\t\t\t.smooth(0.875), 0.000001, [0.2, 0.7, 0.5, 0.3].smooth(1))\n\t\t.color(0.6, 0.144, 0.5)\n\t\t.scrollY(0.35)\n\t\t.scrollX(() => Math.sin(time * 0.236)))\n\t.add(shape([4, 5, 6].fast(0.1)\n\t\t\t.smooth(1), 0.000001, [0.2, 0.7, 0.3].smooth(1))\n\t\t.color(0.2, 0.4, 0.6)\n\t\t.scrollY(-0.35)\n\t\t.scrollX(() => Math.sin(time * 0.41) * -1))\n\t.add(src(o0)\n\t\t.shift(0.001, 0.01, 0.002)\n\t\t.scrollX([0.05, -0.05].fast(0.1)\n\t\t\t.smooth(1))\n\t\t.scale([1.05, 0.9].fast(0.3)\n\t\t\t.smooth(1), [1.05, 0.9, 1].fast(0.096)\n\t\t\t.smooth(1)), 0.85)\n\t.modulate(voronoi(1000, 2, 2))\n\t.out();"
+  },
+  {
+    "sketch_id": "0J7LBEHwCPwjDYfH",
+    "code": "\nosc(100000005,0.1,1.2)\n\t.out()\n"
+  },
+  {
+    "sketch_id": "0J7xJNnQI6F6TUJP",
+    "code": "//Pixelscape\n//Marianne Teixido\n//https://github.com/MarianneTeixido\n\nsrc(o0)\n .saturate(1)\n .scale(1)\n .color(1,1,1)\n .hue(1)\n .modulateHue(src(o1).hue(.09).posterize(-81).contrast(-.7),2)\n  .layer(src(o1)\n         .luma()\n         .mult(gradient(1)\n               .saturate(.9)))\n  .out(o0)\n\nnoise(1, .2, .3)\n  .rotate(2,.5)\n  .layer(src(o0)\n  .scrollX(.2))\n  .out(o1)\n\nrender(o0)"
+  },
+  {
+    "sketch_id": "0JANyfvmixg1mbY8",
+    "code": "shape(2).scale(.0082).modulateRotate(noise(()=>Math.sin(time)*.02)).rotate(1.55).repeatX(()=>time*.052).modulate(o2).scrollX(()=>Math.sin(time)*.05).mult(o2,.4)\n  .colorama(()=>time*.0004582)//.blend(src(o2).scrollX(2,()=>time*.05))\n  //.mult(o2,.5).modulate(voronoi(2))//.shift(.2,1,2),3)//.blend(o2,.01)\n  .modulate(voronoi(()=>Math.sin(time))).add(src(o2).modulate(o2).scrollX(2,.02),.3)\n.mult(shape(()=>time*.002).scale(.9)).diff(o2).add(gradient(2),.2)\n  //.diff(o2)\n  .out(o2)\n\n\nrender(o2)"
+  },
+  {
+    "sketch_id": "0JEmCUfKp73zWMtg",
+    "code": "// ee_2 . MULTIVERSE . time and feedback\n// e_e // @eerie_ear\npat = ()=>\nsolid()\n.layer(solid().diff(\n  osc((time/16) * 3, (time/1000) * 0.2  )\n    .mult(osc((time/8) * 1, (time/1006) * 0.2  ).rotate(1.57))\n    .modulate((shape(106,1,0.05)))\n    .mult(shape(106,1,0.05))\n  ))\n  .modulateScale(osc(2,0.125),0.125)\n//\nsolid()\n.layer(solid(1,1,1)\n  .mult(pat()\n  .diff(src(o0).scale(0.2).mult(solid(),[0.7,0.6,46.4,0.6]).kaleid(1.01).saturate(0.3))\n)\n.layer(solid(1,1,1)\n    .mask(\n      noise(2,0.05)\n      .invert().colorama(2).posterize(8,14).luma(0.25).thresh(0.5)\n      .modulateRotate(osc(1,0.5))\n    )\n    .mult(gradient(0.5).kaleid(1).colorama(2).saturate(1.1).contrast(1.6).mult(solid(),0.45))\n  ))\n  .out()\t\n//\nspeed= 0.5\n\n\n"
+  },
+  {
+    "sketch_id": "0JOM38vzidlCWmbJ",
+    "code": "// Tag & Sweep\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nosc(18,0.115,1.8)\n  .rotate(4,1.8)\n.kaleid(19)\n  .out()"
+  },
+  {
+    "sketch_id": "0JYNRqLqGcqkgj6C",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n\n // Puertas\n// por Celeste Betancur\n// https://github.com/essteban\n\nosc(13,0,1)\n  .modulate(osc(21,0.25,0))\n  .modulateScale(osc(34))\n  .modulateKaleid(osc(55),0.1,1)\n  .out()\n"
+  },
+  {
+    "sketch_id": "0Jk072svSbG2DlN6",
+    "code": "// Tag & Sweep\n// by Rangga Purnama Aji\n// https://ranggapurnamaaji1.wixsite.com/portfolio\n\nmoise(100,10.125,1.5)\n  .rotate(5,1.7)\n.kaleid(12)\n  .out(o0)"
+  },
+  {
+    "sketch_id": "0K2oXZYpN7xQxfwD",
+    "code": "osc(99.822, 0, 1.324)\n\t.color(1, 0.704, 1)\n\t.rotate(0.358, -0.18)\n\t.modulateRotate(o1, 0.003)\n\t.out(o0);\nosc(40.696)\n\t.rotate(2, 0.146)\n\t.modulateRotate(o0, () => a.fft[0] * 1)\n\t.out(o1);\n"
+  },
+  {
+    "sketch_id": "0KAavFHDcoHb8M1I",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Zach Krall\n// http://zachkrall.online/\n\nosc( 215, 0.1, 2 )\n.modulate(\n  osc( 2, -0.3, 100 )\n  .rotate(15)\n)\n.mult(\n  osc( 215, -0.1, 2)\n  .pixelate( 50, 50 )\n)\n.color( 0.9, 0.0, 0.9 )\n.modulate(\n  osc( 6, -0.1 )\n  .rotate( 9 )\n)\n.add(\n  osc( 10, -0.9, 900 )\n  .color(1,0,1)\n)\n.mult(\n  shape(900, 0.2, 1)\n  .luma()\n  .repeatX(2)\n  .repeatY(2)\n  .colorama(10)\n)\n.modulate(\n  osc( 9, -0.3, 900 )\n  .rotate( 6 )\n)\n.add(\n  osc(4, 1, 90)\n  .color(0.2,0,1)\n)\n.out()\n\n"
+  },
+  {
+    "sketch_id": "0KAqXJdadO1f6Gud",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(20,0.1,1.2)\n  \t.out()\n"
+  },
+  {
+    "sketch_id": "0KBWc7Tx9p1J16N0",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// random trypophobia - changes everytime you load it!\n// by Ritchse\n// instagram.com/ritchse\nfunction r(min = 0, max = 1) {\n\treturn Math.random() * (max - min) + min;\n}\nsolid(1, 1, 1)\n\t.diff(shape([4, 4, 4, 24].smooth()\n\t\t\t.fast(.5), r(0.6, 0.93), .09)\n\t\t.repeat(20, 10))\n\t.modulateScale(osc(9.289)\n\t\t.rotate(r(-.5, .5)), .52)\n\t.add(src(o0)\n\t\t.scale(0.394)\n\t\t.rotate(.012 * Math.round(r(-2, 1.3)))\n\t\t.color(r(), r(), r())\n\t\t.modulateRotate(o0, r(0.346, 0.5))\n\t\t.brightness(.15), .7)\n\t.out();"
+  },
+  {
+    "sketch_id": "0KN492WwJPAA2Xfi",
+    "code": "osc(51.743, 0.1, 1).add(noise(-1, 2)).color(3, 1, 13).colorama(1,31).kaleid(123).mult(osc(3, 4, 9)).scrollX(0.5, 0.05).modulateRepeat(osc(2), 1, 2, 4, 3).modulateKaleid(osc(12, 0.029, 0), 1).rotate(4, 0.1, 0).modulate(noise(-2.5), () => 1.5 * Math.sin(0.008 * time)).out(o0)\n"
+  },
+  {
+    "sketch_id": "0KfPrJORqb9N2FaF",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\nosc(1,2,300).diff(gradient(1).diff(gradient(2).scale())).scale(.1).invert().sub(shape(2,.1).modulate(osc(10,1/5).contrast([-6,6].smooth())).luma()).diff(src(o0).scale(.99).diff(src(o0).scale(1.01))).blend(o0,.9).out()\n"
+  },
+  {
+    "sketch_id": "0Kimi8q6zSVWjJh4",
+    "code": "shape([3,4,5,6,7],0.1,0.5).modulate(voronoi(2,0.75)).mult(osc(10,1).kaleid([3,4,5,6,7]).diff(gradient(1)).modulate(voronoi(2,0.75))).color([0,0,0,1,1,1,1],[0,1,1,0,0,1,1],[1,0,1,0,1,0,1]).modulateRepeat(osc(1).scroll(1,1).scrollX(1,1).scrollY(1,1)).modulateRotate(noise([0.25,0.5,0.75,1])).rotate(0.1,0.1).scroll(1,1).out()"
+  },
+  {
+    "sketch_id": "0KvfpNugYHYVY7WA",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n//tropical juice\n//by Ritchse\n//instagram.com/ritchse\n \nvoronoi(2,0.3,0.2).shift(0.5)\n.modulatePixelate(voronoi(4,0.2),32,2)\n.scale(()=>1+(Math.sin(time*2.5)*0.05))\n.diff(voronoi(3).shift(0.6))\n.diff(osc(2,0.15,1.1).rotate())\n.brightness(0.1).contrast(1.2).saturate(1.2)\n\t.out()\nspeed = 0.8\n"
+  },
+  {
+    "sketch_id": "0Kx21nIeNiCq2ig4",
+    "code": "await loadScript(\"https://hyper-hydra.glitch.me/hydra-fractals.js\")\n//await loadScript(\"https://hyper-hydra.glitch.me/hydra-outputs.js\")\n\n//oS.setLinear()\n\nsrc(o0)\n\t.scale(.75)\n\t.add(noise(2,1),.4)\n\t.invert()\n\t.inversion()\n\t.mirrorX2()\n\t.blend(o0,.3)\n\t.out()"
+  },
+  {
+    "sketch_id": "0L4vYmrYDtSqr816",
+    "code": "voronoi(2.5, 2, 1).color(14.167, .100, 1).colorama(90).kaleid(12).brightness(.015).out(o0);\n"
+  },
+  {
+    "sketch_id": "0L6D8KSizRwCikiM",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// Puertas\n// por Celeste Betancur\n// modified as a fist attempt: just messing around....\n// https://github.com/essteban\nosc(8.028, 0.3, 0.61)\n\t.modulate(osc(16.274, 0.243, 3))\n\t.modulateScale(noise(84))\n\t.modulateKaleid(noise(15.207), 2.61, 0.409)\n\t.rotate(9,0.5)\n\t.scale(0.5,0.3)\n\t.posterize(8,4)\n\t.out();"
+  },
+  {
+    "sketch_id": "0L7mM7uCsqHtR19D",
+    "code": "// licensed with CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/\n// by Nelson Vera\n// twitter: @nel_sonologia\n\nosc(9,-0.5, 1).color(-1.5, -1.5, -1.5).blend(o0).rotate(-9.5, -0.5).modulate(shape(9).rotate(0.5, 0.5).scale(2).repeatX(2, 2).modulate(o0, () => mouse.x * 0.0005).repeatY(2, 2)).out(o0)\n\n// Complex Triangle Animation\n\nosc(3, 0.5, 1)\n  .rotate(({time}) => time % 360)\n  .kaleid(3)\n  .color(\n    () => Math.sin(time * 0.5) + 1,\n    () => Math.cos(time * 0.8) + 1,\n    () => Math.sin(time * 9.3) + 1\n  )\n  .pixelate(20, 20)\n  .modulateRotate(osc(5, 0.1, 0.5))\n  .scale(() => Math.sin(time * 0.2) * 0.5 + 1)\n  .repeat(2, 2)\n  .out()\n\n\n\n\n\n\n\n"
+  }
+]

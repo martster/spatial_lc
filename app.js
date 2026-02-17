@@ -67,6 +67,7 @@ let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
 let lastOverlayActionTs = 0;
 let currentExitAction = null;
+let currentSketchId = null;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -76,9 +77,10 @@ panelRunnerMount.style.height = "1px";
 panelRunnerMount.style.overflow = "hidden";
 document.body.appendChild(panelRunnerMount);
 const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-const PANEL_RUNNER_WIDTH = isLikelyMobile ? 320 : 480;
-const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 180 : 270;
+const PANEL_RUNNER_WIDTH = isLikelyMobile ? 256 : 384;
+const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 144 : 216;
 const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
+const MAX_ACTIVE_RUNNERS = isLikelyMobile ? 2 : 5;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -263,60 +265,24 @@ async function ensureGallerySnippetsLoaded() {
   }
 
   gallerySnippetsLoaded = true;
-  const remoteUrl = "https://api.hydrasynth.xyz/sketches";
+  const localUrl = "./hydra-gallery-snippets.json";
 
   try {
-    const res = await fetch(remoteUrl, { mode: "cors" });
+    const res = await fetch(localUrl, { cache: "no-store" });
     if (!res.ok) {
       throw new Error("gallery fetch failed");
     }
     const data = await res.json();
-    const snippets = Array.isArray(data) ? data : [];
-    const decoded = snippets
-      .map((entry) => {
-        const encoded = entry?.code;
-        if (typeof encoded !== "string" || encoded.length === 0) {
-          return null;
-        }
-
-        try {
-          const raw = atob(encoded);
-          let code = raw;
-          try {
-            code = decodeURIComponent(raw);
-          } catch {
-            // keep raw when not URI-encoded
-          }
-          return {
-            sketch_id: entry?.sketch_id || entry?._id || "unknown",
-            code
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter((item) => {
-        if (!item?.code) {
-          return false;
-        }
-        const normalized = item.code.toLowerCase();
-        if (!normalized.includes(".out(") && !normalized.includes(".out()")) {
-          return false;
-        }
-        if (normalized.includes("src(s0)") || normalized.includes("initcam")) {
-          return false;
-        }
-        return true;
-      });
-
-    gallerySnippets = decoded;
+    gallerySnippets = Array.isArray(data)
+      ? data.filter((item) => typeof item?.code === "string" && item.code.length > 10)
+      : [];
     if (gallerySnippets.length === 0) {
       throw new Error("no compatible snippets");
     }
-    setSyncStatus(`Hydra gallery ready (${gallerySnippets.length} snippets).`);
+    setSyncStatus(`Hydra gallery ready (${gallerySnippets.length} local snippets).`);
   } catch {
     gallerySnippets = [];
-    setSyncStatus("Hydra gallery unavailable right now.", true);
+    setSyncStatus("Hydra gallery file unavailable.", true);
   }
 }
 
@@ -378,6 +344,7 @@ async function applyRandomSnippet() {
   const next = gallerySnippets[Math.floor(Math.random() * gallerySnippets.length)];
   codeEditor.value = next.code;
   applyHydraCode(next.code);
+  currentSketchId = next.sketch_id || null;
   setStatus(`Random loaded from Hydra sketch ${next.sketch_id}.`);
   if (actingAsHost) {
     broadcastToViewers({ type: "code", code: next.code });
@@ -405,6 +372,7 @@ function addGalleryItem(snapshot, code, mode, id = null, ts = Date.now()) {
     id: itemId,
     snapshot,
     code,
+    sketch_id: currentSketchId,
     mode,
     ts
   });
@@ -656,6 +624,16 @@ function renderGallery() {
     actions.appendChild(loadBtn);
     actions.appendChild(deleteBtn);
 
+    if (item.sketch_id) {
+      const link = document.createElement("a");
+      link.href = `https://hydra.ojack.xyz/?sketch_id=${item.sketch_id}`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "gallery-sketch-link";
+      link.textContent = `sketch ${item.sketch_id}`;
+      card.appendChild(link);
+    }
+
     card.appendChild(img);
     card.appendChild(meta);
     card.appendChild(actions);
@@ -806,6 +784,41 @@ function disposePanelEngine(panelEngine) {
     // ignore cleanup errors
   }
   panelEngine.canvas?.remove();
+}
+
+function freezePanelRunner(entry) {
+  if (!entry?.panelEngine) {
+    return;
+  }
+
+  const freezeCanvas = document.createElement("canvas");
+  freezeCanvas.width = entry.panelEngine.canvas.width;
+  freezeCanvas.height = entry.panelEngine.canvas.height;
+  const ctx = freezeCanvas.getContext("2d");
+  ctx.drawImage(entry.panelEngine.canvas, 0, 0, freezeCanvas.width, freezeCanvas.height);
+
+  const frozenTexture = new THREE.CanvasTexture(freezeCanvas);
+  frozenTexture.colorSpace = THREE.SRGBColorSpace;
+  frozenTexture.minFilter = THREE.LinearFilter;
+  frozenTexture.magFilter = THREE.LinearFilter;
+
+  entry.material.map = frozenTexture;
+  entry.material.needsUpdate = true;
+  entry.texture.dispose();
+  entry.texture = frozenTexture;
+
+  disposePanelEngine(entry.panelEngine);
+  entry.panelEngine = null;
+}
+
+function countActiveRunners() {
+  let n = 0;
+  for (const panel of placedPanels) {
+    if (panel.panelEngine) {
+      n += 1;
+    }
+  }
+  return n;
 }
 
 function trackPlacedPanel(entry) {
@@ -987,6 +1000,14 @@ function addPanelAt(scene, geometry, cameraPos, worldPos) {
     panelEngine,
     scene
   });
+
+  while (countActiveRunners() > MAX_ACTIVE_RUNNERS) {
+    const oldestLive = placedPanels.find((entry) => entry.panelEngine);
+    if (!oldestLive) {
+      break;
+    }
+    freezePanelRunner(oldestLive);
+  }
 
   if (placedPanels.length > MAX_PLACED_PANELS) {
     const oldest = placedPanels.shift();
@@ -1255,6 +1276,7 @@ function onWindowResize() {
 
 function bindEvents() {
   runBtn.addEventListener("click", () => {
+    currentSketchId = null;
     applyHydraCode(codeEditor.value);
     if (actingAsHost) {
       broadcastToViewers({ type: "code", code: codeEditor.value });
@@ -1262,6 +1284,7 @@ function bindEvents() {
   });
 
   resetBtn.addEventListener("click", () => {
+    currentSketchId = null;
     codeEditor.value = defaultCode;
     applyHydraCode(codeEditor.value);
     if (actingAsHost) {
@@ -1272,6 +1295,7 @@ function bindEvents() {
   randomBtn.addEventListener("click", applyRandomSnippet);
 
   codeEditor.addEventListener("input", () => {
+    currentSketchId = null;
     if (role === "controller") {
       pushCodeDebounced();
     }
@@ -1296,23 +1320,22 @@ function bindEvents() {
   qrCloseBtn.addEventListener("click", () => qrDialog.close());
 
   const bindOverlayAction = (btn, action) => {
-    btn.addEventListener(
-      "pointerdown",
-      (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof event.stopImmediatePropagation === "function") {
-          event.stopImmediatePropagation();
-        }
-        const now = Date.now();
-        if (now - lastOverlayActionTs < 120) {
-          return;
-        }
-        lastOverlayActionTs = now;
-        action();
-      },
-      { passive: false }
-    );
+    const invoke = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+      const now = Date.now();
+      if (now - lastOverlayActionTs < 120) {
+        return;
+      }
+      lastOverlayActionTs = now;
+      action();
+    };
+
+    btn.addEventListener("pointerdown", invoke, { passive: false });
+    btn.addEventListener("click", invoke, { passive: false });
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
