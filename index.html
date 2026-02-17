@@ -10,15 +10,18 @@
     <main class="app">
       <header class="topbar">
         <h1>Spatial Live Coding AR</h1>
-        <p>Site-specific visuals: edit on laptop, perform in spatial AR.</p>
+        <p>Compose on one screen. Place frozen visual moments in space.</p>
       </header>
 
       <section class="sync-panel" aria-label="Live sync session controls">
         <p id="role-chip" class="chip">Role: solo</p>
+        <p class="sync-help">
+          Controller edits code (usually laptop). Viewer places visuals in AR (usually phone).
+        </p>
         <div class="sync-row">
           <input id="room-id" type="text" placeholder="room id (e.g. berlin-01)" />
-          <button id="host-btn" type="button">Host</button>
-          <button id="join-btn" type="button">Join</button>
+          <button id="host-btn" type="button">Start Controller</button>
+          <button id="join-btn" type="button">Join as Viewer</button>
           <button id="copy-link-btn" type="button">Copy Viewer Link</button>
         </div>
         <p id="sync-status" aria-live="polite">No remote session.</p>
@@ -38,7 +41,24 @@
         </div>
         <p id="status" role="status" aria-live="polite"></p>
       </section>
+
+      <section class="gallery" aria-label="Placed visual gallery">
+        <div class="gallery-head">
+          <h2>Placed Moments</h2>
+          <button id="clear-gallery-btn" type="button">Clear Gallery</button>
+        </div>
+        <p class="gallery-help">
+          Every placed AR panel is captured here. Old placements keep their old code look.
+        </p>
+        <div id="gallery-grid" class="gallery-grid"></div>
+      </section>
     </main>
+
+    <div id="ar-overlay" class="ar-overlay" hidden>
+      <button id="overlay-exit-btn" type="button">Exit AR</button>
+      <button id="overlay-undo-btn" type="button">Undo Last</button>
+      <button id="overlay-clear-btn" type="button">Clear All</button>
+    </div>
 
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/hydra-synth"></script>

@@ -15,20 +15,27 @@ const joinBtn = document.getElementById("join-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
 
+const overlayRoot = document.getElementById("ar-overlay");
+const overlayExitBtn = document.getElementById("overlay-exit-btn");
+const overlayUndoBtn = document.getElementById("overlay-undo-btn");
+const overlayClearBtn = document.getElementById("overlay-clear-btn");
+
+const galleryGrid = document.getElementById("gallery-grid");
+const clearGalleryBtn = document.getElementById("clear-gallery-btn");
+
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
+const GALLERY_KEY = "spatial_lc_gallery_v2";
 
 let hydra;
 let webcam;
 let arMode = "desktop";
-let overlayExitBtn;
 
 let xrRenderer;
 let xrScene;
 let xrCamera;
 let xrController;
 let xrReticle;
-let xrHydraTexture;
 let xrHydraGeometry;
 let xrHitTestSource = null;
 let xrRefSpace = null;
@@ -36,7 +43,6 @@ let xrRefSpace = null;
 let desktopRenderer;
 let desktopScene;
 let desktopCamera;
-let desktopHydraTexture;
 let desktopHydraGeometry;
 let desktopActive = false;
 let desktopRaf = 0;
@@ -48,26 +54,34 @@ let actingAsHost = false;
 let hostConn = null;
 const viewerConnections = new Set();
 
+const placedPanels = [];
+let galleryItems = [];
+
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
 
 const defaultCode = `
-solid(0.02, 0.02, 0.05)
+solid(0.01, 0.02, 0.04)
   .layer(
-    osc(7, 0.03, 1.2)
+    osc(6, 0.04, 1.5)
       .kaleid(5)
-      .rotate(() => time * 0.04)
-      .color(0.98, 0.36, 0.2)
-      .luma(0.22)
+      .rotate(() => time * 0.06)
+      .color(1.0, 0.44, 0.18)
+      .luma(0.2)
   )
-  .modulate(noise(3.5, 0.08), 0.16)
+  .layer(
+    noise(3, 0.08)
+      .color(0.08, 0.82, 0.92)
+      .luma(0.45)
+      .blend(solid(), 0.55)
+  )
+  .modulate(osc(12, 0.03, 0.4), 0.05)
   .layer(
     src(s0)
-      .saturate(0.24)
-      .contrast(1.2)
-      .luma(0.35)
-      .color(0.3, 0.72, 1.0)
-      .blend(solid(), 0.45)
+      .saturate(0.25)
+      .contrast(1.12)
+      .luma(0.42)
+      .blend(solid(), 0.55)
   )
   .out(o0)
 
@@ -80,11 +94,11 @@ function resolveRole() {
     return explicit;
   }
 
-  const isSmallTouch =
-    (window.matchMedia("(max-width: 860px)").matches && navigator.maxTouchPoints > 0) ||
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  const looksLikePhone =
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+    (navigator.maxTouchPoints > 0 && window.matchMedia("(max-width: 860px)").matches);
 
-  if (urlParams.get("room") && isSmallTouch) {
+  if (looksLikePhone && urlParams.get("room")) {
     return "viewer";
   }
 
@@ -101,39 +115,23 @@ function setSyncStatus(message, isError = false) {
   syncStatusEl.classList.toggle("error", isError);
 }
 
-function ensureOverlayExitButton() {
-  if (overlayExitBtn) {
-    return;
-  }
-
-  overlayExitBtn = document.createElement("button");
-  overlayExitBtn.id = "ar-exit-overlay";
-  overlayExitBtn.type = "button";
-  overlayExitBtn.textContent = "Exit AR";
-  overlayExitBtn.style.display = "none";
-  document.body.appendChild(overlayExitBtn);
-}
-
-function showOverlayExitButton(label, onClick) {
-  ensureOverlayExitButton();
-  overlayExitBtn.textContent = label;
-  overlayExitBtn.onclick = onClick;
-  overlayExitBtn.style.display = "inline-flex";
-}
-
-function hideOverlayExitButton() {
-  if (!overlayExitBtn) {
-    return;
-  }
-  overlayExitBtn.style.display = "none";
-  overlayExitBtn.onclick = null;
-}
-
 function setAppVisible(visible) {
-  if (!appRoot) {
-    return;
-  }
   appRoot.style.display = visible ? "" : "none";
+}
+
+function showArOverlay(exitLabel, onExit) {
+  overlayRoot.hidden = false;
+  overlayExitBtn.textContent = exitLabel;
+  overlayExitBtn.onclick = onExit;
+  overlayUndoBtn.onclick = () => removeLastPanel();
+  overlayClearBtn.onclick = () => clearPlacedPanels();
+}
+
+function hideArOverlay() {
+  overlayRoot.hidden = true;
+  overlayExitBtn.onclick = null;
+  overlayUndoBtn.onclick = null;
+  overlayClearBtn.onclick = null;
 }
 
 function randomRoomId() {
@@ -153,6 +151,7 @@ function updateRoleUI() {
   if (role === "viewer") {
     document.body.classList.add("viewer-role");
     codeEditor.readOnly = true;
+    arBtn.disabled = false;
   } else {
     document.body.classList.remove("viewer-role");
     codeEditor.readOnly = false;
@@ -175,12 +174,6 @@ function broadcastToViewers(payload) {
     if (conn.open) {
       conn.send(payload);
     }
-  }
-}
-
-function sendToHost(payload) {
-  if (hostConn?.open) {
-    hostConn.send(payload);
   }
 }
 
@@ -277,7 +270,7 @@ function hostSession() {
 
   peer.on("open", () => {
     updateUrlState("controller", roomId);
-    setSyncStatus(`Hosting room: ${roomId}`);
+    setSyncStatus(`Controller session live: ${roomId}`);
   });
 
   peer.on("connection", (conn) => {
@@ -307,13 +300,13 @@ function joinSession() {
 
     hostConn.on("open", () => {
       updateUrlState("viewer", roomId);
-      setSyncStatus(`Joined room: ${roomId}`);
+      setSyncStatus(`Viewer connected to: ${roomId}`);
       hostConn.send({ type: "request-sync" });
     });
 
     hostConn.on("data", (data) => handleData(data));
     hostConn.on("close", () => {
-      setSyncStatus("Disconnected from host.", true);
+      setSyncStatus("Disconnected from controller.", true);
       hostConn = null;
     });
     hostConn.on("error", (error) => {
@@ -329,7 +322,7 @@ function joinSession() {
 async function copyViewerLink() {
   const room = (roomIdInput.value || "").trim();
   if (!room) {
-    setSyncStatus("Host first, then copy the viewer link.", true);
+    setSyncStatus("Start controller session first.", true);
     return;
   }
 
@@ -343,6 +336,176 @@ async function copyViewerLink() {
   } catch {
     setSyncStatus(`Viewer link: ${url.toString()}`);
   }
+}
+
+function loadGallery() {
+  try {
+    const raw = localStorage.getItem(GALLERY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveGallery() {
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 80)));
+}
+
+function renderGallery() {
+  galleryGrid.innerHTML = "";
+
+  if (galleryItems.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "gallery-empty";
+    empty.textContent = "No placed moments yet.";
+    galleryGrid.appendChild(empty);
+    return;
+  }
+
+  for (const item of galleryItems) {
+    const card = document.createElement("article");
+    card.className = "gallery-card";
+
+    const img = document.createElement("img");
+    img.src = item.snapshot;
+    img.alt = `Placed panel ${new Date(item.ts).toLocaleString()}`;
+
+    const meta = document.createElement("p");
+    meta.className = "gallery-meta";
+    meta.textContent = `${new Date(item.ts).toLocaleString()} • ${item.mode}`;
+
+    const actions = document.createElement("div");
+    actions.className = "gallery-actions";
+
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.textContent = "Load Code";
+    loadBtn.dataset.action = "load";
+    loadBtn.dataset.id = item.id;
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.dataset.action = "delete";
+    deleteBtn.dataset.id = item.id;
+
+    actions.appendChild(loadBtn);
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(img);
+    card.appendChild(meta);
+    card.appendChild(actions);
+    galleryGrid.appendChild(card);
+  }
+}
+
+function addGalleryItem(snapshot, code, mode) {
+  galleryItems.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    snapshot,
+    code,
+    mode,
+    ts: Date.now()
+  });
+
+  saveGallery();
+  renderGallery();
+}
+
+function handleGalleryAction(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const id = target.dataset.id;
+  const action = target.dataset.action;
+  if (!id || !action) {
+    return;
+  }
+
+  const item = galleryItems.find((entry) => entry.id === id);
+  if (!item) {
+    return;
+  }
+
+  if (action === "load") {
+    applyHydraCode(item.code);
+    if (actingAsHost) {
+      broadcastToViewers({ type: "code", code: item.code });
+    }
+    setStatus("Loaded code from gallery moment.");
+    return;
+  }
+
+  if (action === "delete") {
+    galleryItems = galleryItems.filter((entry) => entry.id !== id);
+    saveGallery();
+    renderGallery();
+  }
+}
+
+function clearGallery() {
+  galleryItems = [];
+  saveGallery();
+  renderGallery();
+}
+
+function captureSnapshotCanvas() {
+  const width = canvas.width || Math.max(2, Math.floor(canvas.clientWidth * window.devicePixelRatio));
+  const height = canvas.height || Math.max(2, Math.floor(canvas.clientHeight * window.devicePixelRatio));
+
+  const snap = document.createElement("canvas");
+  snap.width = width;
+  snap.height = height;
+  const ctx = snap.getContext("2d");
+  ctx.drawImage(canvas, 0, 0, width, height);
+
+  return {
+    snapCanvas: snap,
+    dataUrl: snap.toDataURL("image/jpeg", 0.9)
+  };
+}
+
+function createSnapshotMaterial() {
+  const { snapCanvas, dataUrl } = captureSnapshotCanvas();
+  const texture = new THREE.CanvasTexture(snapCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.DoubleSide
+  });
+
+  return { material, texture, dataUrl };
+}
+
+function trackPlacedPanel(mesh, material, texture, scene) {
+  placedPanels.push({ mesh, material, texture, scene });
+}
+
+function removeLastPanel() {
+  const panel = placedPanels.pop();
+  if (!panel) {
+    setStatus("No placed panel to remove.");
+    return;
+  }
+
+  panel.scene.remove(panel.mesh);
+  panel.material.dispose();
+  panel.texture.dispose();
+  panel.mesh.geometry.dispose();
+  setStatus("Removed last placed panel.");
+}
+
+function clearPlacedPanels() {
+  while (placedPanels.length > 0) {
+    removeLastPanel();
+  }
+  setStatus("Cleared all placed panels.");
 }
 
 async function setupCamera() {
@@ -394,20 +557,17 @@ async function detectArMode() {
   if (supportsWebXr) {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
-    arBtn.disabled = false;
     return;
   }
 
   if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
-    arBtn.disabled = false;
     return;
   }
 
   arMode = "desktop";
   arBtn.textContent = "Start Desktop AR";
-  arBtn.disabled = false;
 }
 
 async function startArExperience() {
@@ -461,17 +621,12 @@ function initArScene() {
   xrScene = new THREE.Scene();
   xrCamera = new THREE.PerspectiveCamera();
 
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.1);
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x333333, 1.1);
   xrScene.add(hemi);
-
-  xrHydraTexture = new THREE.CanvasTexture(canvas);
-  xrHydraTexture.colorSpace = THREE.SRGBColorSpace;
-  xrHydraTexture.minFilter = THREE.LinearFilter;
-  xrHydraTexture.magFilter = THREE.LinearFilter;
 
   xrHydraGeometry = new THREE.PlaneGeometry(1.2, 0.675);
 
-  const reticleGeo = new THREE.RingGeometry(0.06, 0.08, 32);
+  const reticleGeo = new THREE.RingGeometry(0.06, 0.09, 32);
   reticleGeo.rotateX(-Math.PI / 2);
   xrReticle = new THREE.Mesh(
     reticleGeo,
@@ -486,26 +641,31 @@ function initArScene() {
   xrScene.add(xrController);
 }
 
+function addPanelAt(scene, geometry, cameraPos, worldPos) {
+  const { material, texture, dataUrl } = createSnapshotMaterial();
+  const plane = new THREE.Mesh(geometry.clone(), material);
+  plane.position.copy(worldPos);
+  plane.position.y += 0.35;
+  plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
+
+  scene.add(plane);
+  trackPlacedPanel(plane, material, texture, scene);
+  addGalleryItem(dataUrl, codeEditor.value, arMode);
+}
+
 function onArSelect() {
   if (!xrReticle?.visible) {
     return;
   }
 
-  const material = new THREE.MeshBasicMaterial({
-    map: xrHydraTexture,
-    side: THREE.DoubleSide
-  });
-
-  const plane = new THREE.Mesh(xrHydraGeometry, material);
-
   const cameraPos = new THREE.Vector3();
   const xrCam = xrRenderer.xr.getCamera(xrCamera);
   cameraPos.setFromMatrixPosition(xrCam.matrixWorld);
 
-  plane.position.setFromMatrixPosition(xrReticle.matrix);
-  plane.position.y += 0.45;
-  plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
-  xrScene.add(plane);
+  const worldPos = new THREE.Vector3();
+  worldPos.setFromMatrixPosition(xrReticle.matrix);
+
+  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos);
 }
 
 async function startArSession() {
@@ -519,28 +679,25 @@ async function startArSession() {
 
   session.addEventListener("end", onArSessionEnded);
   await xrRenderer.xr.setSession(session);
-  setAppVisible(false);
-  showOverlayExitButton("Exit AR", async () => {
-    const active = xrRenderer?.xr.getSession();
-    if (active) {
-      await active.end();
-    }
-  });
   document.body.appendChild(xrRenderer.domElement);
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
   xrRefSpace = await session.requestReferenceSpace("local-floor");
 
+  setAppVisible(false);
+  showArOverlay("Exit AR", async () => {
+    const active = xrRenderer?.xr.getSession();
+    if (active) {
+      await active.end();
+    }
+  });
+
   xrRenderer.setAnimationLoop(onArFrame);
-  setStatus("WebXR AR running. Tap to place Hydra panels.");
+  setStatus("WebXR AR running. Tap to place frozen moments.");
 }
 
 function onArFrame(_, frame) {
-  if (xrHydraTexture) {
-    xrHydraTexture.needsUpdate = true;
-  }
-
   if (frame && xrHitTestSource && xrRefSpace) {
     const hitResults = frame.getHitTestResults(xrHitTestSource);
     if (hitResults.length > 0) {
@@ -569,7 +726,7 @@ function onArSessionEnded() {
     xrReticle.visible = false;
   }
 
-  hideOverlayExitButton();
+  hideArOverlay();
   setAppVisible(true);
   setStatus("WebXR AR session ended.");
 }
@@ -605,35 +762,17 @@ function initDesktopArScene() {
   );
   desktopCamera.position.set(0, 1.45, 0.1);
 
-  const ambient = new THREE.HemisphereLight(0xffffff, 0x2d2d2d, 1.1);
+  const ambient = new THREE.HemisphereLight(0xffffff, 0x2a2a2a, 1.1);
   desktopScene.add(ambient);
-
-  desktopHydraTexture = new THREE.CanvasTexture(canvas);
-  desktopHydraTexture.colorSpace = THREE.SRGBColorSpace;
-  desktopHydraTexture.minFilter = THREE.LinearFilter;
-  desktopHydraTexture.magFilter = THREE.LinearFilter;
 
   desktopHydraGeometry = new THREE.PlaneGeometry(1.2, 0.675);
   desktopRenderer.domElement.addEventListener("pointerdown", onDesktopPointerDown);
 }
 
-function computeComfortDistance(planeWidth, viewportCoverage = 0.42) {
+function computeComfortDistance(planeWidth, viewportCoverage = 0.46) {
   const fovRad = THREE.MathUtils.degToRad(desktopCamera.fov);
   const visibleWidthAtUnitDistance = 2 * Math.tan(fovRad / 2) * desktopCamera.aspect;
   return planeWidth / (visibleWidthAtUnitDistance * viewportCoverage);
-}
-
-function placeDesktopPlane(worldPoint) {
-  const material = new THREE.MeshBasicMaterial({
-    map: desktopHydraTexture,
-    side: THREE.DoubleSide
-  });
-
-  const plane = new THREE.Mesh(desktopHydraGeometry, material);
-  plane.position.copy(worldPoint);
-  plane.position.y += 0.35;
-  plane.lookAt(desktopCamera.position.x, plane.position.y, desktopCamera.position.z);
-  desktopScene.add(plane);
 }
 
 function placeDesktopSeedPanel() {
@@ -641,7 +780,7 @@ function placeDesktopSeedPanel() {
   const distance = computeComfortDistance(1.2, 0.5);
   const start = desktopCamera.position.clone();
   const point = start.add(direction.multiplyScalar(distance));
-  placeDesktopPlane(point);
+  addPanelAt(desktopScene, desktopHydraGeometry, desktopCamera.position, point);
 }
 
 function onDesktopPointerDown(event) {
@@ -663,23 +802,19 @@ function onDesktopPointerDown(event) {
   const hasHit = raycaster.ray.intersectPlane(ground, hit);
 
   if (hasHit) {
-    placeDesktopPlane(hit);
+    addPanelAt(desktopScene, desktopHydraGeometry, desktopCamera.position, hit);
     return;
   }
 
-  const fallbackPoint = raycaster.ray.origin
+  const fallback = raycaster.ray.origin
     .clone()
     .add(raycaster.ray.direction.clone().multiplyScalar(1.8));
-  placeDesktopPlane(fallbackPoint);
+  addPanelAt(desktopScene, desktopHydraGeometry, desktopCamera.position, fallback);
 }
 
 function desktopAnimate() {
   if (!desktopActive) {
     return;
-  }
-
-  if (desktopHydraTexture) {
-    desktopHydraTexture.needsUpdate = true;
   }
 
   desktopRenderer.render(desktopScene, desktopCamera);
@@ -707,7 +842,7 @@ function startDesktopArSession() {
 
   desktopActive = true;
   setAppVisible(false);
-  showOverlayExitButton("Exit Desktop AR", () => toggleDesktopArSession());
+  showArOverlay("Exit Desktop AR", () => toggleDesktopArSession());
 
   if (!desktopHasSeedPanel) {
     placeDesktopSeedPanel();
@@ -715,7 +850,7 @@ function startDesktopArSession() {
   }
 
   desktopAnimate();
-  setStatus("Desktop AR running. Click/tap to place more panels.");
+  setStatus("Desktop AR running. Click/tap to place frozen moments.");
 }
 
 function stopDesktopArSession() {
@@ -730,7 +865,7 @@ function stopDesktopArSession() {
     webcam.parentNode.removeChild(webcam);
   }
 
-  hideOverlayExitButton();
+  hideArOverlay();
   setAppVisible(true);
   setStatus("Desktop AR session ended.");
 }
@@ -793,6 +928,8 @@ function bindEvents() {
   });
 
   copyLinkBtn.addEventListener("click", copyViewerLink);
+  galleryGrid.addEventListener("click", handleGalleryAction);
+  clearGalleryBtn.addEventListener("click", clearGallery);
   window.addEventListener("resize", onWindowResize);
 }
 
@@ -813,6 +950,8 @@ async function start() {
     return;
   }
 
+  galleryItems = loadGallery();
+  renderGallery();
   updateRoleUI();
   bindEvents();
   codeEditor.value = defaultCode;
@@ -825,9 +964,9 @@ async function start() {
     autoSetupSession();
 
     if (role === "viewer") {
-      setStatus("Viewer mode ready. Start AR and receive live code.");
+      setStatus("Viewer ready. Start AR and place moments.");
     } else {
-      setStatus("Controller mode ready. Edits stream live to viewers.");
+      setStatus("Controller ready. Live edits stream to viewers.");
     }
   } catch (error) {
     setStatus(`Startup failed: ${error.message}`, true);
