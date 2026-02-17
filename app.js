@@ -6,6 +6,7 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const arBtn = document.getElementById("ar-btn");
 const statusEl = document.getElementById("status");
+const appRoot = document.querySelector(".app");
 
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
@@ -31,6 +32,8 @@ let desktopHydraTexture;
 let desktopHydraGeometry;
 let desktopActive = false;
 let desktopRaf = 0;
+let desktopHasSeedPanel = false;
+let overlayExitBtn;
 
 const defaultCode = `
 // Camera source comes from s0.
@@ -51,6 +54,41 @@ render(o0)
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+}
+
+function ensureOverlayExitButton() {
+  if (overlayExitBtn) {
+    return;
+  }
+
+  overlayExitBtn = document.createElement("button");
+  overlayExitBtn.id = "ar-exit-overlay";
+  overlayExitBtn.type = "button";
+  overlayExitBtn.textContent = "Exit AR";
+  overlayExitBtn.style.display = "none";
+  document.body.appendChild(overlayExitBtn);
+}
+
+function showOverlayExitButton(label, onClick) {
+  ensureOverlayExitButton();
+  overlayExitBtn.textContent = label;
+  overlayExitBtn.onclick = onClick;
+  overlayExitBtn.style.display = "inline-flex";
+}
+
+function hideOverlayExitButton() {
+  if (!overlayExitBtn) {
+    return;
+  }
+  overlayExitBtn.style.display = "none";
+  overlayExitBtn.onclick = null;
+}
+
+function setAppVisible(visible) {
+  if (!appRoot) {
+    return;
+  }
+  appRoot.style.display = visible ? "" : "none";
 }
 
 async function setupCamera() {
@@ -259,6 +297,13 @@ async function startArSession() {
 
   session.addEventListener("end", onArSessionEnded);
   await xrRenderer.xr.setSession(session);
+  setAppVisible(false);
+  showOverlayExitButton("Exit AR", async () => {
+    const active = xrRenderer?.xr.getSession();
+    if (active) {
+      await active.end();
+    }
+  });
   document.body.appendChild(xrRenderer.domElement);
   arBtn.textContent = "Exit AR";
 
@@ -304,6 +349,8 @@ function onArSessionEnded() {
   }
 
   arBtn.textContent = "Start AR";
+  hideOverlayExitButton();
+  setAppVisible(true);
   setStatus("WebXR AR session ended.");
 }
 
@@ -425,10 +472,20 @@ function startDesktopArSession() {
   }
 
   desktopActive = true;
+  setAppVisible(false);
+  showOverlayExitButton("Exit Desktop AR", () => {
+    toggleDesktopArSession();
+  });
   arBtn.textContent = "Exit Desktop AR";
+
+  if (!desktopHasSeedPanel) {
+    placeDesktopPlane(new THREE.Vector3(0, 0, -1.8));
+    desktopHasSeedPanel = true;
+  }
+
   desktopAnimate();
 
-  setStatus("Desktop AR running. Click/tap to place Hydra panels.");
+  setStatus("Desktop AR running. Click/tap to place more Hydra panels.");
 }
 
 function stopDesktopArSession() {
@@ -444,6 +501,8 @@ function stopDesktopArSession() {
   }
 
   arBtn.textContent = "Start Desktop AR";
+  hideOverlayExitButton();
+  setAppVisible(true);
   setStatus("Desktop AR session ended.");
 }
 

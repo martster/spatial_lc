@@ -114,6 +114,20 @@ button:disabled {
   color: var(--danger);
 }
 
+#ar-exit-overlay {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 1001;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  color: #06131e;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
 @media (max-width: 720px) {
   .app {
     width: 100vw;
