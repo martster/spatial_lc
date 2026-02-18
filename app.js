@@ -45,7 +45,8 @@ let xrController;
 let xrReticle;
 let xrWallReticle;
 let xrHydraGeometry;
-let xrHitTestSource = null;
+let xrFloorHitTestSource = null;
+let xrWallHitTestSource = null;
 let xrRefSpace = null;
 
 let desktopRenderer;
@@ -1095,12 +1096,101 @@ function onArSelect() {
   addPanelAt(xrScene, xrHydraGeometry, currentReticleSurface);
 }
 
+function pointInPolygon2D(point, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+    const intersects =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi + 1e-8) + xi;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function getBestWallFromPlanes(frame, cameraPos, cameraForward, refSpace) {
+  const planes = frame.detectedPlanes;
+  if (!planes || planes.size === 0) {
+    return null;
+  }
+
+  const plusY = new THREE.Vector3(0, 1, 0);
+  const plusZ = new THREE.Vector3(0, 0, 1);
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  let best = null;
+
+  for (const plane of planes) {
+    const pose = frame.getPose(plane.planeSpace, refSpace);
+    if (!pose) {
+      continue;
+    }
+
+    const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+    const planePos = new THREE.Vector3().setFromMatrixPosition(matrix);
+    const quat = new THREE.Quaternion().setFromRotationMatrix(matrix);
+    const rawNormal = plusY.clone().applyQuaternion(quat).normalize();
+    const verticality = 1 - Math.abs(rawNormal.dot(worldUp));
+    if (verticality < 0.78) {
+      continue;
+    }
+
+    let normal = rawNormal.clone();
+    if (normal.dot(cameraPos.clone().sub(planePos)) < 0) {
+      normal.negate();
+    }
+    normal.y = 0;
+    if (normal.lengthSq() < 0.08) {
+      continue;
+    }
+    normal.normalize();
+
+    const denom = normal.dot(cameraForward);
+    if (Math.abs(denom) < 0.16) {
+      continue;
+    }
+    const t = normal.dot(planePos.clone().sub(cameraPos)) / denom;
+    if (t < 0.25 || t > 6.0) {
+      continue;
+    }
+    const hitPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
+
+    if (plane.polygon && plane.polygon.length >= 3) {
+      const inv = matrix.clone().invert();
+      const local = hitPos.clone().applyMatrix4(inv);
+      const poly2d = plane.polygon.map((p) => ({ x: p.x, y: p.z }));
+      if (!pointInPolygon2D({ x: local.x, y: local.z }, poly2d)) {
+        continue;
+      }
+    }
+
+    const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, normal);
+    const score = verticality + 1 / Math.max(1, t);
+    const candidate = {
+      kind: "wall",
+      score,
+      position: hitPos,
+      quaternion: wallQuat,
+      normal
+    };
+    if (!best || candidate.score > best.score) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
 async function startArSession() {
   initArScene();
 
   const session = await navigator.xr.requestSession("immersive-ar", {
     requiredFeatures: ["hit-test"],
-    optionalFeatures: ["dom-overlay", "local-floor"],
+    optionalFeatures: ["dom-overlay", "local-floor", "plane-detection"],
     domOverlay: { root: document.body }
   });
 
@@ -1109,7 +1199,14 @@ async function startArSession() {
   document.body.appendChild(xrRenderer.domElement);
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
-  xrHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+  xrFloorHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+  if (typeof XRRay === "function") {
+    const wallRay = new XRRay({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 });
+    xrWallHitTestSource = await session.requestHitTestSource({
+      space: viewerSpace,
+      offsetRay: wallRay
+    });
+  }
   xrRefSpace = await session.requestReferenceSpace("local");
 
   setAppVisible(false);
@@ -1134,11 +1231,24 @@ function onArFrame(_, frame) {
     overlayClearBtn.textContent = "Clear All";
   }
 
-  if (frame && xrHitTestSource && xrRefSpace) {
-    const hitResults = frame.getHitTestResults(xrHitTestSource);
+  if (frame && xrRefSpace && (xrFloorHitTestSource || xrWallHitTestSource)) {
+    const floorHits = xrFloorHitTestSource ? frame.getHitTestResults(xrFloorHitTestSource) : [];
+    const wallHits = xrWallHitTestSource ? frame.getHitTestResults(xrWallHitTestSource) : [];
+    let hitResults = floorHits;
+    if (placementTarget === "wall") {
+      hitResults = wallHits.length > 0 ? wallHits : floorHits;
+    } else if (placementTarget === "auto") {
+      hitResults = wallHits.length > 0 ? wallHits : floorHits;
+    }
     if (hitResults.length > 0) {
       const xrCam = xrRenderer.xr.getCamera(xrCamera);
       const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+      const cameraForward = new THREE.Vector3();
+      xrCam.getWorldDirection(cameraForward);
+      if (cameraForward.lengthSq() < 0.01) {
+        cameraForward.set(0, 0, -1);
+      }
+      cameraForward.normalize();
       const worldUp = new THREE.Vector3(0, 1, 0);
       const plusY = new THREE.Vector3(0, 1, 0);
       const plusZ = new THREE.Vector3(0, 0, 1);
@@ -1146,6 +1256,10 @@ function onArFrame(_, frame) {
 
       let bestFloor = null;
       let bestWall = null;
+      const planeWall = getBestWallFromPlanes(frame, cameraPos, cameraForward, xrRefSpace);
+      if (planeWall) {
+        bestWall = planeWall;
+      }
 
       for (const result of hitResults) {
         const pose = result.getPose(xrRefSpace);
@@ -1259,8 +1373,10 @@ function onArSessionEnded() {
     xrRenderer.domElement.parentNode.removeChild(xrRenderer.domElement);
   }
 
-  xrHitTestSource?.cancel();
-  xrHitTestSource = null;
+  xrFloorHitTestSource?.cancel();
+  xrFloorHitTestSource = null;
+  xrWallHitTestSource?.cancel();
+  xrWallHitTestSource = null;
   xrRefSpace = null;
   if (xrReticle) {
     xrReticle.visible = false;
@@ -1499,6 +1615,7 @@ function bindEvents() {
 
   const bindOverlayAction = (btn, action) => {
     let lastTs = 0;
+    let pointerHandled = false;
     const invoke = (event, source) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1526,13 +1643,28 @@ function bindEvents() {
     };
 
     btn.addEventListener(
-      "pointerdown",
-      (event) => invokeVisible(event, "pointerdown"),
+      "pointerup",
+      (event) => {
+        pointerHandled = true;
+        invokeVisible(event, "pointerup");
+        window.setTimeout(() => {
+          pointerHandled = false;
+        }, 450);
+      },
       { passive: false }
     );
-    btn.addEventListener("click", (event) => invokeVisible(event, "click"), {
-      passive: false
-    });
+    btn.addEventListener(
+      "click",
+      (event) => {
+        if (pointerHandled) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        invokeVisible(event, "click");
+      },
+      { passive: false }
+    );
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
