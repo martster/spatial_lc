@@ -22,7 +22,7 @@ const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
 const overlayUndoBtn = document.getElementById("overlay-undo-btn");
 const overlayClearBtn = document.getElementById("overlay-clear-btn");
-const overlayStatusEl = document.getElementById("overlay-status");
+let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
@@ -172,10 +172,33 @@ function resolveRole() {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+  const badge = ensureOverlayStatusEl();
+  badge.textContent = message;
+  badge.classList.toggle("error", isError);
+  badge.style.color = isError ? "#ff5d7c" : "#ffe9ff";
+}
+
+function ensureOverlayStatusEl() {
   if (overlayStatusEl) {
-    overlayStatusEl.textContent = message;
-    overlayStatusEl.classList.toggle("error", isError);
+    return overlayStatusEl;
   }
+  overlayStatusEl = document.createElement("p");
+  overlayStatusEl.id = "overlay-status";
+  overlayStatusEl.className = "ar-overlay-status";
+  overlayStatusEl.setAttribute("aria-live", "polite");
+  overlayStatusEl.style.flex = "1 1 100%";
+  overlayStatusEl.style.margin = "0";
+  overlayStatusEl.style.padding = "0.45rem 0.6rem";
+  overlayStatusEl.style.border = "1px solid #ff46c7";
+  overlayStatusEl.style.borderRadius = "0.2rem";
+  overlayStatusEl.style.background = "rgba(7, 4, 23, 0.9)";
+  overlayStatusEl.style.color = "#ffe9ff";
+  overlayStatusEl.style.fontSize = "0.86rem";
+  overlayStatusEl.style.lineHeight = "1.35";
+  overlayStatusEl.style.fontWeight = "700";
+  overlayStatusEl.style.textShadow = "0 0 4px rgba(0,0,0,0.6)";
+  overlayRoot.appendChild(overlayStatusEl);
+  return overlayStatusEl;
 }
 
 function updateSurfaceButtonUi() {
@@ -207,6 +230,9 @@ function showArOverlay(exitLabel, onExit) {
   overlayExitBtn.textContent = exitLabel;
   overlayClearBtn.textContent = "Clear All";
   clearArConfirmUntil = 0;
+  const badge = ensureOverlayStatusEl();
+  badge.textContent = "AR overlay active. Scanning...";
+  badge.classList.remove("error");
 }
 
 function hideArOverlay() {
