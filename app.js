@@ -1180,52 +1180,54 @@ function getBestWallFromPlanes(frame, cameraPos, cameraForward, refSpace) {
     const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
     const planePos = new THREE.Vector3().setFromMatrixPosition(matrix);
     const quat = new THREE.Quaternion().setFromRotationMatrix(matrix);
-    const rawNormal = plusY.clone().applyQuaternion(quat).normalize();
-    const verticality = 1 - Math.abs(rawNormal.dot(worldUp));
-    if (verticality < 0.78) {
-      continue;
-    }
-
-    let normal = rawNormal.clone();
-    if (normal.dot(cameraPos.clone().sub(planePos)) < 0) {
-      normal.negate();
-    }
-    normal.y = 0;
-    if (normal.lengthSq() < 0.08) {
-      continue;
-    }
-    normal.normalize();
-
-    const denom = normal.dot(cameraForward);
-    if (Math.abs(denom) < 0.16) {
-      continue;
-    }
-    const t = normal.dot(planePos.clone().sub(cameraPos)) / denom;
-    if (t < 0.25 || t > 6.0) {
-      continue;
-    }
-    const hitPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
-
-    if (plane.polygon && plane.polygon.length >= 3) {
-      const inv = matrix.clone().invert();
-      const local = hitPos.clone().applyMatrix4(inv);
-      const poly2d = plane.polygon.map((p) => ({ x: p.x, y: p.z }));
-      if (!pointInPolygon2D({ x: local.x, y: local.z }, poly2d)) {
+    for (const axis of [plusY, plusZ]) {
+      const rawNormal = axis.clone().applyQuaternion(quat).normalize();
+      const verticality = 1 - Math.abs(rawNormal.dot(worldUp));
+      if (verticality < 0.78) {
         continue;
       }
-    }
 
-    const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, normal);
-    const score = verticality + 1 / Math.max(1, t);
-    const candidate = {
-      kind: "wall",
-      score,
-      position: hitPos,
-      quaternion: wallQuat,
-      normal
-    };
-    if (!best || candidate.score > best.score) {
-      best = candidate;
+      let normal = rawNormal.clone();
+      if (normal.dot(cameraPos.clone().sub(planePos)) < 0) {
+        normal.negate();
+      }
+      normal.y = 0;
+      if (normal.lengthSq() < 0.08) {
+        continue;
+      }
+      normal.normalize();
+
+      const denom = normal.dot(cameraForward);
+      if (Math.abs(denom) < 0.16) {
+        continue;
+      }
+      const t = normal.dot(planePos.clone().sub(cameraPos)) / denom;
+      if (t < 0.25 || t > 6.0) {
+        continue;
+      }
+      const hitPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
+
+      if (plane.polygon && plane.polygon.length >= 3) {
+        const inv = matrix.clone().invert();
+        const local = hitPos.clone().applyMatrix4(inv);
+        const poly2d = plane.polygon.map((p) => ({ x: p.x, y: p.z }));
+        if (!pointInPolygon2D({ x: local.x, y: local.z }, poly2d)) {
+          continue;
+        }
+      }
+
+      const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, normal);
+      const score = verticality + 1 / Math.max(1, t);
+      const candidate = {
+        kind: "wall",
+        score,
+        position: hitPos,
+        quaternion: wallQuat,
+        normal
+      };
+      if (!best || candidate.score > best.score) {
+        best = candidate;
+      }
     }
   }
 
@@ -1361,8 +1363,7 @@ function onArFrame(_, frame) {
     } else if (placementTarget === "auto") {
       hitResults = wallHits.length > 0 ? wallHits : floorHits;
     }
-    if (hitResults.length > 0) {
-      const xrCam = xrRenderer.xr.getCamera(xrCamera);
+    const xrCam = xrRenderer.xr.getCamera(xrCamera);
       const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
       const cameraForward = new THREE.Vector3();
       xrCam.getWorldDirection(cameraForward);
@@ -1590,7 +1591,7 @@ function onArFrame(_, frame) {
         }
       }
 
-      if (placementTarget === "wall") {
+    if (placementTarget === "wall") {
         const now = Date.now();
         if (now - lastWallDebugTs > 1000) {
           const planeInfo = xrPlaneDetectionEnabled
@@ -1608,11 +1609,6 @@ function onArFrame(_, frame) {
           lastWallDebugTs = now;
         }
       }
-    } else {
-      xrReticle.visible = false;
-      xrWallReticle.visible = false;
-      currentReticleSurface = null;
-    }
   }
 
   updatePlacedPanelTextures();
