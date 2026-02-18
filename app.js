@@ -1018,15 +1018,11 @@ function addPanelAt(
     plane.position.add(floorNormal.multiplyScalar(0.01));
     setStatus("Placed on floor target.");
   } else {
-    // Wall target: use measured hit depth, but project placement along view ray.
-    const forward = (cameraForward || new THREE.Vector3(0, 0, -1)).clone().normalize();
-    const depth = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 0.6, 6.0);
-    plane.position.copy(cameraPos).add(forward.multiplyScalar(depth));
-
-    // Keep panel vertical and facing the user.
+    // Wall target: use wall-reticle position directly and keep panel vertical.
     const faceTarget = cameraPos.clone();
     faceTarget.y = plane.position.y;
     plane.lookAt(faceTarget);
+    plane.position.add(cameraPos.clone().sub(plane.position).normalize().multiplyScalar(0.01));
     setStatus("Placed on wall target.");
   }
 
@@ -1128,8 +1124,31 @@ function onArFrame(_, frame) {
     const hitResults = frame.getHitTestResults(xrHitTestSource);
     if (hitResults.length > 0) {
       const pose = hitResults[0].getPose(xrRefSpace);
-      xrReticle.visible = true;
-      xrReticle.matrix.fromArray(pose.transform.matrix);
+      const hitPos = new THREE.Vector3().setFromMatrixPosition(
+        new THREE.Matrix4().fromArray(pose.transform.matrix)
+      );
+
+      if (placementTarget === "floor") {
+        xrReticle.visible = true;
+        xrReticle.matrix.fromArray(pose.transform.matrix);
+      } else {
+        const xrCam = xrRenderer.xr.getCamera(xrCamera);
+        const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+        const cameraForward = new THREE.Vector3();
+        xrCam.getWorldDirection(cameraForward);
+        cameraForward.normalize();
+
+        const depth = THREE.MathUtils.clamp(cameraPos.distanceTo(hitPos), 0.8, 4.0);
+        const wallPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(depth));
+        const wallNormal = cameraPos.clone().sub(wallPos).normalize();
+
+        const wallQuat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          wallNormal
+        );
+        xrReticle.matrix.compose(wallPos, wallQuat, new THREE.Vector3(1, 1, 1));
+        xrReticle.visible = true;
+      }
     } else {
       xrReticle.visible = false;
     }
@@ -1384,8 +1403,8 @@ function bindEvents() {
       if (event.type === "click" && now < suppressOverlayClickUntil) {
         return;
       }
-      if (event.type === "pointerdown") {
-        suppressOverlayClickUntil = now + 650;
+      if (event.type === "touchend") {
+        suppressOverlayClickUntil = now + 700;
       }
 
       if (now - lastOverlayActionTs < 220) {
@@ -1396,20 +1415,14 @@ function bindEvents() {
       action();
     };
 
-    const invokePointer = (event) => {
+    const invokeVisible = (event) => {
       if (!overlayRoot.hidden) {
         invoke(event);
       }
     };
 
-    const invokeClick = (event) => {
-      if (!overlayRoot.hidden) {
-        invoke(event);
-      }
-    };
-
-    btn.addEventListener("pointerdown", invokePointer, { passive: false });
-    btn.addEventListener("click", invokeClick, { passive: false });
+    btn.addEventListener("touchend", invokeVisible, { passive: false });
+    btn.addEventListener("click", invokeVisible, { passive: false });
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
