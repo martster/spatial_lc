@@ -1010,35 +1010,42 @@ function addPanelAt(
 
   plane.position.copy(worldPos);
   if (surfaceMode && surfaceQuaternion) {
-    const surfaceNormal = new THREE.Vector3(0, 1, 0)
-      .applyQuaternion(surfaceQuaternion)
-      .normalize();
-    const wallLike = Math.abs(surfaceNormal.y) < 0.55;
+    const heightDelta = worldPos.y - cameraPos.y;
+    const looksLikeFloorHit = heightDelta < -0.35;
+    const forwardH = (cameraForward || new THREE.Vector3(0, 0, -1)).clone();
+    forwardH.y = 0;
+    if (forwardH.lengthSq() < 0.0001) {
+      forwardH.set(0, 0, -1);
+    }
+    forwardH.normalize();
 
-    if (wallLike) {
+    // Prefer true wall orientation only when hit point is near eye level.
+    if (!looksLikeFloorHit) {
+      const surfaceNormal = new THREE.Vector3(0, 1, 0)
+        .applyQuaternion(surfaceQuaternion)
+        .normalize();
       const forward = new THREE.Vector3(0, 0, 1);
-      const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, surfaceNormal);
+      const wallNormal = surfaceNormal.clone();
+      wallNormal.y = 0;
+      if (wallNormal.lengthSq() < 0.0001) {
+        wallNormal.copy(forwardH).multiplyScalar(-1);
+      } else {
+        wallNormal.normalize();
+      }
+      const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, wallNormal);
       plane.quaternion.copy(alignQuat);
-      plane.position.add(surfaceNormal.multiplyScalar(0.01));
+      plane.position.add(wallNormal.multiplyScalar(0.01));
+      setStatus("Surface hit used.");
     } else {
-      // Wall assist fallback: if only floor hits are available, place a vertical panel in view direction.
-      const forwardH = (cameraForward || new THREE.Vector3(0, 0, -1)).clone();
-      forwardH.y = 0;
-      if (forwardH.lengthSq() < 0.0001) {
-        forwardH.set(worldPos.x - cameraPos.x, 0, worldPos.z - cameraPos.z);
-      }
-      if (forwardH.lengthSq() < 0.0001) {
-        forwardH.set(0, 0, -1);
-      }
-      forwardH.normalize();
-
-      const distance = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 1.4, 2.2);
+      // Cross-device wall assist: ignore floor hit position and place a vertical panel ahead.
+      const distance = 1.65;
       plane.position.copy(cameraPos).add(forwardH.multiplyScalar(distance));
-      plane.position.y = cameraPos.y - 0.1;
+      plane.position.y = cameraPos.y - 0.08;
 
       const normal = cameraPos.clone().sub(plane.position).normalize();
       const forward = new THREE.Vector3(0, 0, 1);
       plane.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(forward, normal));
+      setStatus("Wall assist used (floor-biased hit).");
     }
   } else {
     plane.position.y += 0.35;
