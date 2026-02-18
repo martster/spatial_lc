@@ -46,8 +46,11 @@ let xrReticle;
 let xrWallReticle;
 let xrHydraGeometry;
 let xrFloorHitTestSource = null;
-let xrWallHitTestSource = null;
+const xrWallHitTestSources = [];
 let xrRefSpace = null;
+let xrPlaneDetectionEnabled = false;
+let xrPlaneDetectionSeen = false;
+let lastPlaneHintTs = 0;
 
 let desktopRenderer;
 let desktopScene;
@@ -1197,15 +1200,37 @@ async function startArSession() {
   session.addEventListener("end", onArSessionEnded);
   await xrRenderer.xr.setSession(session);
   document.body.appendChild(xrRenderer.domElement);
+  const enabledFeatures = session.enabledFeatures;
+  if (enabledFeatures && typeof enabledFeatures.includes === "function") {
+    xrPlaneDetectionEnabled = enabledFeatures.includes("plane-detection");
+  } else if (enabledFeatures && typeof enabledFeatures.has === "function") {
+    xrPlaneDetectionEnabled = enabledFeatures.has("plane-detection");
+  } else {
+    xrPlaneDetectionEnabled = false;
+  }
+  xrPlaneDetectionSeen = false;
+  lastPlaneHintTs = 0;
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrFloorHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
   if (typeof XRRay === "function") {
-    const wallRay = new XRRay({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 });
-    xrWallHitTestSource = await session.requestHitTestSource({
-      space: viewerSpace,
-      offsetRay: wallRay
-    });
+    const wallRays = [
+      new XRRay({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -1 }),
+      new XRRay({ x: 0, y: 0, z: 0 }, { x: 0, y: 0.12, z: -1 }),
+      new XRRay({ x: 0, y: 0, z: 0 }, { x: 0.08, y: 0.12, z: -1 }),
+      new XRRay({ x: 0, y: 0, z: 0 }, { x: -0.08, y: 0.12, z: -1 })
+    ];
+    for (const wallRay of wallRays) {
+      try {
+        const source = await session.requestHitTestSource({
+          space: viewerSpace,
+          offsetRay: wallRay
+        });
+        xrWallHitTestSources.push(source);
+      } catch {
+        // Some engines may reject specific rays; keep other sources alive.
+      }
+    }
   }
   xrRefSpace = await session.requestReferenceSpace("local");
 
@@ -1222,7 +1247,11 @@ async function startArSession() {
   });
 
   xrRenderer.setAnimationLoop(onArFrame);
-  setStatus("WebXR AR running. Tap to place animated moments.");
+  if (xrPlaneDetectionEnabled) {
+    setStatus("WebXR AR running. Plane detection active.");
+  } else {
+    setStatus("WebXR AR running. Plane detection not exposed by this browser.");
+  }
 }
 
 function onArFrame(_, frame) {
@@ -1231,9 +1260,14 @@ function onArFrame(_, frame) {
     overlayClearBtn.textContent = "Clear All";
   }
 
-  if (frame && xrRefSpace && (xrFloorHitTestSource || xrWallHitTestSource)) {
+  if (frame && xrRefSpace && (xrFloorHitTestSource || xrWallHitTestSources.length > 0)) {
     const floorHits = xrFloorHitTestSource ? frame.getHitTestResults(xrFloorHitTestSource) : [];
-    const wallHits = xrWallHitTestSource ? frame.getHitTestResults(xrWallHitTestSource) : [];
+    const wallHits = [];
+    for (const source of xrWallHitTestSources) {
+      for (const hit of frame.getHitTestResults(source)) {
+        wallHits.push(hit);
+      }
+    }
     let hitResults = floorHits;
     if (placementTarget === "wall") {
       hitResults = wallHits.length > 0 ? wallHits : floorHits;
@@ -1257,6 +1291,9 @@ function onArFrame(_, frame) {
       let bestFloor = null;
       let bestWall = null;
       const planeWall = getBestWallFromPlanes(frame, cameraPos, cameraForward, xrRefSpace);
+      if (planeWall) {
+        xrPlaneDetectionSeen = true;
+      }
       if (planeWall) {
         bestWall = planeWall;
       }
@@ -1354,6 +1391,13 @@ function onArFrame(_, frame) {
         xrReticle.visible = false;
         xrWallReticle.visible = false;
         currentReticleSurface = null;
+        if (placementTarget === "wall" && xrPlaneDetectionEnabled && !xrPlaneDetectionSeen) {
+          const now = Date.now();
+          if (now - lastPlaneHintTs > 2500) {
+            setStatus("No vertical plane detected yet. Move slowly and scan the wall.");
+            lastPlaneHintTs = now;
+          }
+        }
       }
     } else {
       xrReticle.visible = false;
@@ -1375,9 +1419,14 @@ function onArSessionEnded() {
 
   xrFloorHitTestSource?.cancel();
   xrFloorHitTestSource = null;
-  xrWallHitTestSource?.cancel();
-  xrWallHitTestSource = null;
+  for (const source of xrWallHitTestSources) {
+    source?.cancel?.();
+  }
+  xrWallHitTestSources.length = 0;
   xrRefSpace = null;
+  xrPlaneDetectionEnabled = false;
+  xrPlaneDetectionSeen = false;
+  lastPlaneHintTs = 0;
   if (xrReticle) {
     xrReticle.visible = false;
   }
