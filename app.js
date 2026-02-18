@@ -1127,11 +1127,20 @@ function addPanelAt(scene, geometry, placement) {
 }
 
 function onArSelect() {
-  if (!currentReticleSurface) {
+  if (currentReticleSurface) {
+    addPanelAt(xrScene, xrHydraGeometry, currentReticleSurface);
     return;
   }
 
-  addPanelAt(xrScene, xrHydraGeometry, currentReticleSurface);
+  if (placementTarget === "wall" && xrRenderer && xrCamera) {
+    const xrCam = xrRenderer.xr.getCamera(xrCamera);
+    const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+    const cameraForward = new THREE.Vector3();
+    xrCam.getWorldDirection(cameraForward);
+    const estimated = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
+    addPanelAt(xrScene, xrHydraGeometry, estimated);
+    setStatus("Placed using estimated wall fallback.");
+  }
 }
 
 function pointInPolygon2D(point, polygon) {
@@ -1236,6 +1245,33 @@ function projectPointToLockedWall(cameraPos, cameraForward, lockedWall) {
     return null;
   }
   return cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
+}
+
+function buildEstimatedWallSurface(cameraPos, cameraForward, distance = 1.6) {
+  const plusZ = new THREE.Vector3(0, 0, 1);
+  const forwardFlat = cameraForward.clone();
+  forwardFlat.y = 0;
+  if (forwardFlat.lengthSq() < 0.01) {
+    forwardFlat.set(0, 0, -1);
+  }
+  forwardFlat.normalize();
+
+  const wallPos = cameraPos.clone().add(forwardFlat.clone().multiplyScalar(distance));
+  wallPos.y = cameraPos.y - 0.08;
+  const wallNormal = cameraPos.clone().sub(wallPos);
+  wallNormal.y = 0;
+  if (wallNormal.lengthSq() < 0.01) {
+    wallNormal.set(0, 0, 1);
+  }
+  wallNormal.normalize();
+
+  return {
+    kind: "wall",
+    score: -0.2,
+    position: wallPos,
+    quaternion: new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal),
+    normal: wallNormal
+  };
 }
 
 async function startArSession() {
@@ -1521,6 +1557,10 @@ function onArFrame(_, frame) {
         }
       }
 
+      if (!selected && placementTarget === "wall") {
+        selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
+      }
+
       if (selected?.kind === "floor") {
         xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrReticle.visible = true;
@@ -1560,8 +1600,10 @@ function onArFrame(_, frame) {
             : "plane:off";
           const lockInfo =
             Date.now() - lastLockedWallTs < WALL_LOCK_KEEP_MS ? "lock:on" : "lock:off";
+          const sourceInfo =
+            selected?.score === -0.2 ? "source:estimated" : selected ? "source:tracked" : "source:none";
           setStatus(
-            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo} ${lockInfo}`
+            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo} ${lockInfo} ${sourceInfo}`
           );
           lastWallDebugTs = now;
         }
