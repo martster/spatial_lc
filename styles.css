@@ -52,11 +52,6 @@ body {
   color: var(--muted);
 }
 
-.topbar-links a {
-  color: var(--cyan);
-  font-weight: 700;
-}
-
 .sync-panel,
 .controls,
 .gallery {
@@ -135,6 +130,17 @@ body {
 .controls label {
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.hydra-link-row {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.hydra-link-row a {
+  color: var(--cyan);
+  font-weight: 700;
 }
 
 #hydra-code {

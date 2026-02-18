@@ -11,9 +11,6 @@
       <header class="topbar">
         <h1>Spatial Live Coding AR</h1>
         <p>Compose on one screen. Place frozen visual moments in space.</p>
-        <p class="topbar-links">
-          Hydra: <a href="https://hydra.ojack.xyz/" target="_blank" rel="noopener noreferrer">hydra.ojack.xyz</a>
-        </p>
       </header>
 
       <section class="sync-panel" aria-label="Live sync session controls">
@@ -37,12 +34,15 @@
 
       <section class="controls" aria-label="Live coding controls">
         <label for="hydra-code">Hydra Code</label>
+        <p class="hydra-link-row">
+          Need snippet ideas? <a href="https://hydra.ojack.xyz/" target="_blank" rel="noopener noreferrer">Browse Hydra Gallery</a>
+        </p>
         <textarea id="hydra-code" spellcheck="false"></textarea>
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
           <button id="reset-btn" type="button">Reset</button>
           <button id="random-btn" type="button">Random</button>
-          <button id="surface-btn" type="button">Target: Floor</button>
+          <button id="surface-btn" type="button">Target: Auto</button>
           <button id="ar-btn" type="button">Start AR</button>
         </div>
         <p id="status" role="status" aria-live="polite"></p>

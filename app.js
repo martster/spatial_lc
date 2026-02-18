@@ -67,10 +67,10 @@ let galleryItems = [];
 let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
-let lastOverlayActionTs = 0;
 let currentExitAction = null;
 let currentSketchId = null;
-let placementTarget = "floor";
+let placementTarget = "auto";
+let currentReticleSurface = null;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -168,7 +168,15 @@ function setStatus(message, isError = false) {
 }
 
 function updateSurfaceButtonUi() {
-  surfaceBtn.textContent = placementTarget === "floor" ? "Target: Floor" : "Target: Wall";
+  if (placementTarget === "floor") {
+    surfaceBtn.textContent = "Target: Floor";
+    return;
+  }
+  if (placementTarget === "wall") {
+    surfaceBtn.textContent = "Target: Wall";
+    return;
+  }
+  surfaceBtn.textContent = "Target: Auto";
 }
 
 function setSyncStatus(message, isError = false) {
@@ -186,18 +194,12 @@ function showArOverlay(exitLabel, onExit) {
   overlayRoot.addEventListener("beforexrselect", preventXrSelect);
   currentExitAction = onExit;
   overlayExitBtn.textContent = exitLabel;
-  overlayExitBtn.onclick = () => currentExitAction?.();
-  overlayUndoBtn.onclick = () => removeLastPanel();
-  overlayClearBtn.onclick = () => clearPlacedPanels();
 }
 
 function hideArOverlay() {
   overlayRoot.hidden = true;
   overlayRoot.removeEventListener("beforexrselect", preventXrSelect);
   currentExitAction = null;
-  overlayExitBtn.onclick = null;
-  overlayUndoBtn.onclick = null;
-  overlayClearBtn.onclick = null;
 }
 
 function preventXrSelect(event) {
@@ -1008,32 +1010,18 @@ function initArScene() {
   xrScene.add(xrController);
 }
 
-function addPanelAt(
-  scene,
-  geometry,
-  cameraPos,
-  worldPos,
-  surfaceQuaternion = null,
-  cameraForward = null
-) {
+function addPanelAt(scene, geometry, placement) {
   const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
 
-  plane.position.copy(worldPos);
-  if (placementTarget === "floor") {
-    const floorNormal = surfaceQuaternion
-      ? new THREE.Vector3(0, 1, 0).applyQuaternion(surfaceQuaternion).normalize()
-      : new THREE.Vector3(0, 1, 0);
-    const forward = new THREE.Vector3(0, 0, 1);
-    plane.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(forward, floorNormal));
-    plane.position.add(floorNormal.multiplyScalar(0.01));
+  plane.position.copy(placement.position);
+  plane.quaternion.copy(placement.quaternion);
+  const pushNormal = placement.normal.clone().normalize().multiplyScalar(0.01);
+  plane.position.add(pushNormal);
+
+  if (placement.kind === "floor") {
     setStatus("Placed on floor target.");
   } else {
-    // Wall target: use wall-reticle position directly and keep panel vertical.
-    const faceTarget = cameraPos.clone();
-    faceTarget.y = plane.position.y;
-    plane.lookAt(faceTarget);
-    plane.position.add(cameraPos.clone().sub(plane.position).normalize().multiplyScalar(0.01));
     setStatus("Placed on wall target.");
   }
 
@@ -1079,23 +1067,11 @@ function addPanelAt(
 }
 
 function onArSelect() {
-  const activeReticle = placementTarget === "wall" ? xrWallReticle : xrReticle;
-  if (!activeReticle?.visible) {
+  if (!currentReticleSurface) {
     return;
   }
 
-  const cameraPos = new THREE.Vector3();
-  const xrCam = xrRenderer.xr.getCamera(xrCamera);
-  cameraPos.setFromMatrixPosition(xrCam.matrixWorld);
-
-  const worldPos = new THREE.Vector3();
-  worldPos.setFromMatrixPosition(activeReticle.matrix);
-  const surfaceQuaternion = new THREE.Quaternion();
-  activeReticle.matrix.decompose(new THREE.Vector3(), surfaceQuaternion, new THREE.Vector3());
-  const cameraForward = new THREE.Vector3();
-  xrCam.getWorldDirection(cameraForward);
-
-  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos, surfaceQuaternion, cameraForward);
+  addPanelAt(xrScene, xrHydraGeometry, currentReticleSurface);
 }
 
 async function startArSession() {
@@ -1135,51 +1111,91 @@ function onArFrame(_, frame) {
   if (frame && xrHitTestSource && xrRefSpace) {
     const hitResults = frame.getHitTestResults(xrHitTestSource);
     if (hitResults.length > 0) {
-      const pose = hitResults[0].getPose(xrRefSpace);
-      const hitPos = new THREE.Vector3().setFromMatrixPosition(
-        new THREE.Matrix4().fromArray(pose.transform.matrix)
-      );
+      const xrCam = xrRenderer.xr.getCamera(xrCamera);
+      const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      const plusY = new THREE.Vector3(0, 1, 0);
+      const plusZ = new THREE.Vector3(0, 0, 1);
+      const scale = new THREE.Vector3(1, 1, 1);
 
+      let bestFloor = null;
+      let bestWall = null;
+
+      for (const result of hitResults) {
+        const pose = result.getPose(xrRefSpace);
+        if (!pose) {
+          continue;
+        }
+
+        const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+        const hitPos = new THREE.Vector3().setFromMatrixPosition(matrix);
+        const hitQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
+        const normal = plusY.clone().applyQuaternion(hitQuat).normalize();
+        const floorNormal = normal.dot(worldUp) < 0 ? normal.clone().negate() : normal.clone();
+        const upDot = Math.abs(normal.dot(worldUp));
+        const floorScore = upDot;
+        const wallScore = 1 - upDot;
+
+        const toCamera = cameraPos.clone().sub(hitPos);
+        const facingNormal = normal.dot(toCamera) < 0 ? normal.clone().negate() : normal.clone();
+        const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, facingNormal);
+        const floorQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, floorNormal);
+
+        const wallCandidate = {
+          kind: "wall",
+          score: wallScore,
+          position: hitPos.clone(),
+          quaternion: wallQuat,
+          normal: facingNormal
+        };
+        const floorCandidate = {
+          kind: "floor",
+          score: floorScore,
+          position: hitPos.clone(),
+          quaternion: floorQuat,
+          normal: floorNormal
+        };
+
+        if (!bestFloor || floorCandidate.score > bestFloor.score) {
+          bestFloor = floorCandidate;
+        }
+        if (!bestWall || wallCandidate.score > bestWall.score) {
+          bestWall = wallCandidate;
+        }
+      }
+
+      let selected = null;
       if (placementTarget === "floor") {
+        selected = bestFloor;
+      } else if (placementTarget === "wall") {
+        selected = bestWall?.score > 0.32 ? bestWall : null;
+      } else {
+        if (bestWall?.score > 0.62) {
+          selected = bestWall;
+        } else {
+          selected = bestFloor || bestWall;
+        }
+      }
+
+      if (selected?.kind === "floor") {
+        xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrReticle.visible = true;
         xrWallReticle.visible = false;
-        xrReticle.matrix.fromArray(pose.transform.matrix);
-      } else {
-        const xrCam = xrRenderer.xr.getCamera(xrCamera);
-        const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
-        const cameraForward = new THREE.Vector3();
-        xrCam.getWorldDirection(cameraForward);
-        cameraForward.y = 0;
-        if (cameraForward.lengthSq() < 0.0001) {
-          cameraForward.set(0, 0, -1);
-        }
-        cameraForward.normalize();
-
-        const hitVec = hitPos.clone().sub(cameraPos);
-        hitVec.y = 0;
-        let depth = hitVec.length();
-        if (depth < 0.2) {
-          depth = 1.6;
-        }
-        depth = THREE.MathUtils.clamp(depth, 0.8, 4.0);
-        const wallPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(depth));
-        wallPos.y = cameraPos.y - 0.1;
-
-        const wallNormal = cameraPos.clone().sub(wallPos);
-        wallNormal.y = 0;
-        wallNormal.normalize();
-
-        const wallQuat = new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 0, 1),
-          wallNormal
-        );
-        xrWallReticle.matrix.compose(wallPos, wallQuat, new THREE.Vector3(1, 1, 1));
+        currentReticleSurface = selected;
+      } else if (selected?.kind === "wall") {
+        xrWallReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrWallReticle.visible = true;
         xrReticle.visible = false;
+        currentReticleSurface = selected;
+      } else {
+        xrReticle.visible = false;
+        xrWallReticle.visible = false;
+        currentReticleSurface = null;
       }
     } else {
       xrReticle.visible = false;
       xrWallReticle.visible = false;
+      currentReticleSurface = null;
     }
   }
 
@@ -1203,6 +1219,7 @@ function onArSessionEnded() {
   if (xrWallReticle) {
     xrWallReticle.visible = false;
   }
+  currentReticleSurface = null;
 
   hideArOverlay();
   setAppVisible(true);
@@ -1389,13 +1406,21 @@ function bindEvents() {
 
   randomBtn.addEventListener("click", applyRandomSnippet);
   surfaceBtn.addEventListener("click", () => {
-    placementTarget = placementTarget === "floor" ? "wall" : "floor";
+    if (placementTarget === "auto") {
+      placementTarget = "floor";
+    } else if (placementTarget === "floor") {
+      placementTarget = "wall";
+    } else {
+      placementTarget = "auto";
+    }
     updateSurfaceButtonUi();
-    setStatus(
-      placementTarget === "floor"
-        ? "Target switched to floor placement."
-        : "Target switched to wall placement."
-    );
+    if (placementTarget === "auto") {
+      setStatus("Target switched to auto floor/wall placement.");
+    } else if (placementTarget === "floor") {
+      setStatus("Target switched to floor placement.");
+    } else {
+      setStatus("Target switched to wall placement.");
+    }
   });
 
   codeEditor.addEventListener("input", () => {
@@ -1424,6 +1449,7 @@ function bindEvents() {
   qrCloseBtn.addEventListener("click", () => qrDialog.close());
 
   const bindOverlayAction = (btn, action) => {
+    let lastTs = 0;
     const invoke = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1432,10 +1458,10 @@ function bindEvents() {
       }
 
       const now = Date.now();
-      if (now - lastOverlayActionTs < 220) {
+      if (now - lastTs < 240) {
         return;
       }
-      lastOverlayActionTs = now;
+      lastTs = now;
 
       action();
     };
@@ -1446,6 +1472,7 @@ function bindEvents() {
       }
     };
 
+    btn.addEventListener("click", invokeVisible, { passive: false });
     btn.addEventListener("pointerup", invokeVisible, { passive: false });
   };
 
