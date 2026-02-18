@@ -82,7 +82,7 @@ const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "
 const PANEL_RUNNER_WIDTH = isLikelyMobile ? 256 : 384;
 const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 144 : 216;
 const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
-const MAX_ACTIVE_RUNNERS = isLikelyMobile ? 2 : 5;
+const MAX_ACTIVE_RUNNERS = 1;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -827,6 +827,12 @@ function countActiveRunners() {
   return n;
 }
 
+function freezeAllRunnersExceptNewest() {
+  for (let i = 0; i < placedPanels.length - 1; i += 1) {
+    freezePanelRunner(placedPanels[i]);
+  }
+}
+
 function trackPlacedPanel(entry) {
   placedPanels.push(entry);
 }
@@ -996,13 +1002,12 @@ function addPanelAt(scene, geometry, cameraPos, worldPos, surfaceQuaternion = nu
 
   plane.position.copy(worldPos);
   if (surfaceMode && surfaceQuaternion) {
-    const correction = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(-Math.PI / 2, 0, 0)
-    );
-    plane.quaternion.copy(surfaceQuaternion).multiply(correction);
-    const surfaceNormal = new THREE.Vector3(0, 0, 1)
-      .applyQuaternion(plane.quaternion)
+    const surfaceNormal = new THREE.Vector3(0, 1, 0)
+      .applyQuaternion(surfaceQuaternion)
       .normalize();
+    const forward = new THREE.Vector3(0, 0, 1);
+    const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, surfaceNormal);
+    plane.quaternion.copy(alignQuat);
     plane.position.add(surfaceNormal.multiplyScalar(0.01));
   } else {
     plane.position.y += 0.35;
@@ -1017,6 +1022,8 @@ function addPanelAt(scene, geometry, cameraPos, worldPos, surfaceQuaternion = nu
     panelEngine,
     scene
   });
+
+  freezeAllRunnersExceptNewest();
 
   while (countActiveRunners() > MAX_ACTIVE_RUNNERS) {
     const oldestLive = placedPanels.find((entry) => entry.panelEngine);
@@ -1080,7 +1087,7 @@ async function startArSession() {
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
-  xrRefSpace = await session.requestReferenceSpace("local-floor");
+  xrRefSpace = await session.requestReferenceSpace("local");
 
   setAppVisible(false);
   showArOverlay("Exit AR", async () => {
