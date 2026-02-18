@@ -80,6 +80,8 @@ let currentReticleSurface = null;
 let clearArConfirmUntil = 0;
 let lastLockedWallSurface = null;
 let lastLockedWallTs = 0;
+let lastAutoSurfaceKind = null;
+let lastAutoSurfaceTs = 0;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -94,6 +96,7 @@ const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 144 : 216;
 const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
 const MAX_ACTIVE_RUNNERS = 1;
 const WALL_LOCK_KEEP_MS = 14000;
+const AUTO_SURFACE_STICKY_MS = 900;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -1223,7 +1226,8 @@ function getBestWallFromPlanes(frame, cameraPos, cameraForward, refSpace) {
         score,
         position: hitPos,
         quaternion: wallQuat,
-        normal
+        normal,
+        source: "plane"
       };
       if (!best || candidate.score > best.score) {
         best = candidate;
@@ -1276,6 +1280,48 @@ function buildEstimatedWallSurface(cameraPos, cameraForward, distance = 1.6) {
   };
 }
 
+function selectAutoSurface(bestFloor, bestWall, cameraForward) {
+  if (!bestFloor && !bestWall) {
+    return null;
+  }
+  if (!bestFloor) {
+    return bestWall;
+  }
+  if (!bestWall) {
+    return bestFloor;
+  }
+
+  const lookingDown = cameraForward.y < -0.35;
+  const lookingForward = Math.abs(cameraForward.y) < 0.32;
+  let wallScore = bestWall.score;
+  let floorScore = bestFloor.score;
+
+  if (lookingForward) {
+    wallScore += 0.18;
+  }
+  if (lookingDown) {
+    floorScore += 0.22;
+  }
+  if (bestWall.source === "plane") {
+    wallScore += 0.08;
+  }
+
+  let selected = wallScore >= floorScore ? bestWall : bestFloor;
+  const scoreGap = Math.abs(wallScore - floorScore);
+  const now = Date.now();
+  if (lastAutoSurfaceKind && now - lastAutoSurfaceTs < AUTO_SURFACE_STICKY_MS && scoreGap < 0.16) {
+    if (lastAutoSurfaceKind === "wall" && bestWall) {
+      selected = bestWall;
+    } else if (lastAutoSurfaceKind === "floor" && bestFloor) {
+      selected = bestFloor;
+    }
+  }
+
+  lastAutoSurfaceKind = selected.kind;
+  lastAutoSurfaceTs = now;
+  return selected;
+}
+
 async function startArSession() {
   initArScene();
 
@@ -1299,6 +1345,8 @@ async function startArSession() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
+  lastAutoSurfaceKind = null;
+  lastAutoSurfaceTs = 0;
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrFloorHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
@@ -1361,7 +1409,7 @@ function onArFrame(_, frame) {
     if (placementTarget === "wall") {
       hitResults = wallHits.length > 0 ? wallHits : floorHits;
     } else if (placementTarget === "auto") {
-      hitResults = wallHits.length > 0 ? wallHits : floorHits;
+      hitResults = wallHits.concat(floorHits);
     }
     const xrCam = xrRenderer.xr.getCamera(xrCamera);
       const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
@@ -1431,7 +1479,8 @@ function onArFrame(_, frame) {
           score,
           position: hitPos.clone(),
           quaternion: wallQuat,
-          normal: wallNormal
+          normal: wallNormal,
+          source: "hit-test"
         };
         if (!bestWall || wallCandidate.score > bestWall.score) {
           bestWall = wallCandidate;
@@ -1454,7 +1503,8 @@ function onArFrame(_, frame) {
             score: 0.15,
             position: hitPos,
             quaternion: new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal),
-            normal: wallNormal
+            normal: wallNormal,
+            source: "hit-test"
           };
         }
       }
@@ -1512,7 +1562,8 @@ function onArFrame(_, frame) {
             quaternion: wallQuat,
             normal: wallNormal,
             camDistance,
-            heightDiff
+            heightDiff,
+            source: "hit-test"
           };
 
           const passesWallGate =
@@ -1528,14 +1579,12 @@ function onArFrame(_, frame) {
       let selected = null;
       if (placementTarget === "floor") {
         selected = bestFloor;
+        lastAutoSurfaceKind = null;
       } else if (placementTarget === "wall") {
         selected = bestWall || null;
+        lastAutoSurfaceKind = null;
       } else {
-        if (bestWall?.score > 0.72) {
-          selected = bestWall;
-        } else {
-          selected = bestFloor || bestWall;
-        }
+        selected = selectAutoSurface(bestFloor, bestWall, cameraForward);
       }
 
       if (!selected && placementTarget === "wall" && lastLockedWallSurface) {
@@ -1559,6 +1608,9 @@ function onArFrame(_, frame) {
       }
 
       if (!selected && placementTarget === "wall") {
+        selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
+      }
+      if (!selected && placementTarget === "auto" && !bestFloor && cameraForward.y > -0.3) {
         selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
       }
 
@@ -1635,6 +1687,8 @@ function onArSessionEnded() {
   lastWallDebugTs = 0;
   lastLockedWallSurface = null;
   lastLockedWallTs = 0;
+  lastAutoSurfaceKind = null;
+  lastAutoSurfaceTs = 0;
   if (xrReticle) {
     xrReticle.visible = false;
   }
