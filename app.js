@@ -51,6 +51,7 @@ let xrRefSpace = null;
 let xrPlaneDetectionEnabled = false;
 let xrPlaneDetectionSeen = false;
 let lastPlaneHintTs = 0;
+let lastWallDebugTs = 0;
 
 let desktopRenderer;
 let desktopScene;
@@ -1210,6 +1211,7 @@ async function startArSession() {
   }
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
+  lastWallDebugTs = 0;
 
   const viewerSpace = await session.requestReferenceSpace("viewer");
   xrFloorHitTestSource = await session.requestHitTestSource({ space: viewerSpace });
@@ -1321,7 +1323,7 @@ function onArFrame(_, frame) {
         const forwardAlign = cameraForwardFlat.dot(toHitFlat.clone().normalize());
         const camDistance = toHit.length();
         const heightDiff = Math.abs(hitPos.y - cameraPos.y);
-        if (camDistance < 0.25 || camDistance > 6.0 || forwardAlign < 0.18 || heightDiff > 1.45) {
+        if (camDistance < 0.12 || camDistance > 8.0 || forwardAlign < 0.02 || heightDiff > 2.5) {
           continue;
         }
 
@@ -1334,7 +1336,10 @@ function onArFrame(_, frame) {
 
         const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal);
         const score =
-          0.9 + forwardAlign * 0.35 - Math.min(0.6, heightDiff * 0.35) - Math.min(0.5, camDistance * 0.03);
+          0.6 +
+          forwardAlign * 0.45 -
+          Math.min(0.45, heightDiff * 0.2) -
+          Math.min(0.25, camDistance * 0.03);
         const wallCandidate = {
           kind: "wall",
           score,
@@ -1344,6 +1349,27 @@ function onArFrame(_, frame) {
         };
         if (!bestWall || wallCandidate.score > bestWall.score) {
           bestWall = wallCandidate;
+        }
+      }
+
+      if (!bestWall && wallHits.length > 0) {
+        const pose = wallHits[0].getPose(xrRefSpace);
+        if (pose) {
+          const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+          const hitPos = new THREE.Vector3().setFromMatrixPosition(matrix);
+          const wallNormal = cameraPos.clone().sub(hitPos);
+          wallNormal.y = 0;
+          if (wallNormal.lengthSq() < 0.001) {
+            wallNormal.set(0, 0, 1);
+          }
+          wallNormal.normalize();
+          bestWall = {
+            kind: "wall",
+            score: 0.15,
+            position: hitPos,
+            quaternion: new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal),
+            normal: wallNormal
+          };
         }
       }
 
@@ -1448,6 +1474,21 @@ function onArFrame(_, frame) {
           }
         }
       }
+
+      if (placementTarget === "wall") {
+        const now = Date.now();
+        if (now - lastWallDebugTs > 1000) {
+          const planeInfo = xrPlaneDetectionEnabled
+            ? xrPlaneDetectionSeen
+              ? "plane:seen"
+              : "plane:pending"
+            : "plane:off";
+          setStatus(
+            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo}`
+          );
+          lastWallDebugTs = now;
+        }
+      }
     } else {
       xrReticle.visible = false;
       xrWallReticle.visible = false;
@@ -1476,6 +1517,7 @@ function onArSessionEnded() {
   xrPlaneDetectionEnabled = false;
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
+  lastWallDebugTs = 0;
   if (xrReticle) {
     xrReticle.visible = false;
   }
