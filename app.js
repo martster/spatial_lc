@@ -67,6 +67,7 @@ let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
 let lastOverlayActionTs = 0;
+let suppressOverlayClickUntil = 0;
 let currentExitAction = null;
 let currentSketchId = null;
 let surfaceMode = true;
@@ -1031,9 +1032,9 @@ function addPanelAt(
       }
       forwardH.normalize();
 
-      const distance = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 0.8, 3.0);
+      const distance = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 1.4, 2.2);
       plane.position.copy(cameraPos).add(forwardH.multiplyScalar(distance));
-      plane.position.y = THREE.MathUtils.clamp(worldPos.y, cameraPos.y - 0.6, cameraPos.y + 0.5);
+      plane.position.y = cameraPos.y - 0.1;
 
       const normal = cameraPos.clone().sub(plane.position).normalize();
       const forward = new THREE.Vector3(0, 0, 1);
@@ -1389,16 +1390,37 @@ function bindEvents() {
       if (typeof event.stopImmediatePropagation === "function") {
         event.stopImmediatePropagation();
       }
+
       const now = Date.now();
-      if (now - lastOverlayActionTs < 120) {
+      if (event.type === "click" && now < suppressOverlayClickUntil) {
+        return;
+      }
+      if (event.type === "pointerdown") {
+        suppressOverlayClickUntil = now + 650;
+      }
+
+      if (now - lastOverlayActionTs < 220) {
         return;
       }
       lastOverlayActionTs = now;
+
       action();
     };
 
-    btn.addEventListener("pointerdown", invoke, { passive: false });
-    btn.addEventListener("click", invoke, { passive: false });
+    const invokePointer = (event) => {
+      if (!overlayRoot.hidden) {
+        invoke(event);
+      }
+    };
+
+    const invokeClick = (event) => {
+      if (!overlayRoot.hidden) {
+        invoke(event);
+      }
+    };
+
+    btn.addEventListener("pointerdown", invokePointer, { passive: false });
+    btn.addEventListener("click", invokeClick, { passive: false });
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
