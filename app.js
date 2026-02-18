@@ -5,7 +5,6 @@ const codeEditor = document.getElementById("hydra-code");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
-const surfaceBtn = document.getElementById("surface-btn");
 const arBtn = document.getElementById("ar-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
@@ -53,6 +52,7 @@ let xrPlaneDetectionEnabled = false;
 let xrPlaneDetectionSeen = false;
 let lastPlaneHintTs = 0;
 let lastWallDebugTs = 0;
+let lastTrackingHintTs = 0;
 
 let desktopRenderer;
 let desktopScene;
@@ -75,7 +75,6 @@ let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
 let currentExitAction = null;
 let currentSketchId = null;
-let placementTarget = "auto";
 let currentReticleSurface = null;
 let clearArConfirmUntil = 0;
 let lastLockedWallSurface = null;
@@ -97,6 +96,12 @@ const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
 const MAX_ACTIVE_RUNNERS = 1;
 const WALL_LOCK_KEEP_MS = 14000;
 const AUTO_SURFACE_STICKY_MS = 900;
+const PANEL_WIDTH_METERS = 0.84;
+const PANEL_HEIGHT_METERS = PANEL_WIDTH_METERS * (9 / 16);
+const FLOOR_PANEL_OFFSET_M = 0.006;
+const WALL_PANEL_OFFSET_M = 0.003;
+const ESTIMATED_WALL_OFFSET_M = 0.008;
+const TRACKING_HINT_COOLDOWN_MS = 3200;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -205,18 +210,6 @@ function ensureOverlayStatusEl() {
   overlayStatusEl.style.textShadow = "0 0 4px rgba(0,0,0,0.6)";
   overlayRoot.appendChild(overlayStatusEl);
   return overlayStatusEl;
-}
-
-function updateSurfaceButtonUi() {
-  if (placementTarget === "floor") {
-    surfaceBtn.textContent = "Target: Floor";
-    return;
-  }
-  if (placementTarget === "wall") {
-    surfaceBtn.textContent = "Target: Wall";
-    return;
-  }
-  surfaceBtn.textContent = "Target: Auto";
 }
 
 function setSyncStatus(message, isError = false) {
@@ -1045,7 +1038,7 @@ function initArScene() {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x333333, 1.1);
   xrScene.add(hemi);
 
-  xrHydraGeometry = new THREE.PlaneGeometry(1.2, 0.675);
+  xrHydraGeometry = new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS);
 
   const reticleGeo = new THREE.RingGeometry(0.06, 0.09, 32);
   reticleGeo.rotateX(-Math.PI / 2);
@@ -1058,7 +1051,7 @@ function initArScene() {
   xrScene.add(xrReticle);
 
   xrWallReticle = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.38, 0.24),
+    new THREE.PlaneGeometry(PANEL_WIDTH_METERS * 0.36, PANEL_HEIGHT_METERS * 0.36),
     new THREE.MeshBasicMaterial({
       color: 0x5de9ff,
       wireframe: true
@@ -1077,13 +1070,33 @@ function addPanelAt(scene, geometry, placement) {
   const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
 
-  plane.position.copy(placement.position);
-  plane.quaternion.copy(placement.quaternion);
-  const pushNormal = placement.normal.clone().normalize().multiplyScalar(0.01);
+  if (placement?.position) {
+    plane.position.copy(placement.position);
+  } else if (placement?.isVector3) {
+    plane.position.copy(placement);
+  } else {
+    plane.position.set(0, 0, -1.4);
+  }
+
+  if (placement?.quaternion) {
+    plane.quaternion.copy(placement.quaternion);
+  } else {
+    plane.quaternion.identity();
+  }
+
+  const baseNormal =
+    placement?.normal?.clone?.().normalize?.() || new THREE.Vector3(0, 1, 0);
+  let pushAmount = FLOOR_PANEL_OFFSET_M;
+  if (placement?.kind === "wall") {
+    pushAmount = placement.source === "estimated" ? ESTIMATED_WALL_OFFSET_M : WALL_PANEL_OFFSET_M;
+  }
+  const pushNormal = baseNormal.multiplyScalar(pushAmount);
   plane.position.add(pushNormal);
 
-  if (placement.kind === "floor") {
+  if (placement?.kind === "floor") {
     setStatus("Placed on floor target.");
+  } else if (placement?.kind === "wall" && placement?.source === "estimated") {
+    setStatus("Placed on estimated wall. Add texture/edges on wall for better tracking.");
   } else {
     setStatus("Placed on wall target.");
   }
@@ -1135,7 +1148,7 @@ function onArSelect() {
     return;
   }
 
-  if (placementTarget === "wall" && xrRenderer && xrCamera) {
+  if (xrRenderer && xrCamera) {
     const xrCam = xrRenderer.xr.getCamera(xrCamera);
     const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
     const cameraForward = new THREE.Vector3();
@@ -1276,7 +1289,8 @@ function buildEstimatedWallSurface(cameraPos, cameraForward, distance = 1.6) {
     score: -0.2,
     position: wallPos,
     quaternion: new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal),
-    normal: wallNormal
+    normal: wallNormal,
+    source: "estimated"
   };
 }
 
@@ -1345,6 +1359,7 @@ async function startArSession() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
+  lastTrackingHintTs = 0;
   lastAutoSurfaceKind = null;
   lastAutoSurfaceTs = 0;
 
@@ -1385,7 +1400,9 @@ async function startArSession() {
 
   xrRenderer.setAnimationLoop(onArFrame);
   if (xrPlaneDetectionEnabled) {
-    setStatus("WebXR AR running. Plane detection active.");
+    setStatus(
+      "AR running. Auto placement active. Tip: plain white walls track poorly; use edges/texture/light."
+    );
   } else {
     setStatus("WebXR AR running. Plane detection not exposed by this browser.");
   }
@@ -1405,12 +1422,7 @@ function onArFrame(_, frame) {
         wallHits.push(hit);
       }
     }
-    let hitResults = floorHits;
-    if (placementTarget === "wall") {
-      hitResults = wallHits.length > 0 ? wallHits : floorHits;
-    } else if (placementTarget === "auto") {
-      hitResults = wallHits.concat(floorHits);
-    }
+    const hitResults = wallHits.concat(floorHits);
     const xrCam = xrRenderer.xr.getCamera(xrCamera);
       const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
       const cameraForward = new THREE.Vector3();
@@ -1576,20 +1588,11 @@ function onArFrame(_, frame) {
         }
       }
 
-      let selected = null;
-      if (placementTarget === "floor") {
-        selected = bestFloor;
-        lastAutoSurfaceKind = null;
-      } else if (placementTarget === "wall") {
-        selected = bestWall || null;
-        lastAutoSurfaceKind = null;
-      } else {
-        selected = selectAutoSurface(bestFloor, bestWall, cameraForward);
-      }
+      let selected = selectAutoSurface(bestFloor, bestWall, cameraForward);
 
-      if (!selected && placementTarget === "wall" && lastLockedWallSurface) {
+      if (!selected && lastLockedWallSurface) {
         const wallAge = Date.now() - lastLockedWallTs;
-        if (wallAge < WALL_LOCK_KEEP_MS) {
+        if (wallAge < WALL_LOCK_KEEP_MS && cameraForward.y > -0.28) {
           const projected = projectPointToLockedWall(
             cameraPos,
             cameraForward,
@@ -1601,16 +1604,13 @@ function onArFrame(_, frame) {
               score: 0.1,
               position: projected,
               quaternion: lastLockedWallSurface.quaternion.clone(),
-              normal: lastLockedWallSurface.normal.clone()
+              normal: lastLockedWallSurface.normal.clone(),
+              source: "locked"
             };
           }
         }
       }
-
-      if (!selected && placementTarget === "wall") {
-        selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
-      }
-      if (!selected && placementTarget === "auto" && !bestFloor && cameraForward.y > -0.3) {
+      if (!selected && !bestFloor && cameraForward.y > -0.3) {
         selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
       }
 
@@ -1634,32 +1634,36 @@ function onArFrame(_, frame) {
         xrReticle.visible = false;
         xrWallReticle.visible = false;
         currentReticleSurface = null;
-        if (placementTarget === "wall" && xrPlaneDetectionEnabled && !xrPlaneDetectionSeen) {
-          const now = Date.now();
-          if (now - lastPlaneHintTs > 2500) {
-            setStatus("No vertical plane detected yet. Move slowly and scan the wall.");
+        const now = Date.now();
+        if (xrPlaneDetectionEnabled && !xrPlaneDetectionSeen && cameraForward.y > -0.28) {
+          if (now - lastPlaneHintTs > TRACKING_HINT_COOLDOWN_MS) {
+            setStatus(
+              "Wall tracking is weak. Plain white walls are hard to detect; scan slowly and include edges/colors."
+            );
             lastPlaneHintTs = now;
           }
+        } else if (now - lastWallDebugTs > 1200) {
+          setStatus("Scanning surfaces...");
+          lastWallDebugTs = now;
         }
       }
 
-    if (placementTarget === "wall") {
-        const now = Date.now();
-        if (now - lastWallDebugTs > 1000) {
-          const planeInfo = xrPlaneDetectionEnabled
-            ? xrPlaneDetectionSeen
-              ? "plane:seen"
-              : "plane:pending"
-            : "plane:off";
-          const lockInfo =
-            Date.now() - lastLockedWallTs < WALL_LOCK_KEEP_MS ? "lock:on" : "lock:off";
-          const sourceInfo =
-            selected?.score === -0.2 ? "source:estimated" : selected ? "source:tracked" : "source:none";
+      const now = Date.now();
+      if (selected?.kind === "wall" && selected?.source === "estimated") {
+        if (now - lastTrackingHintTs > TRACKING_HINT_COOLDOWN_MS) {
           setStatus(
-            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo} ${lockInfo} ${sourceInfo}`
+            "Using estimated wall. Plain white walls track poorly; add texture/contrast or move to a framed area."
           );
+          lastTrackingHintTs = now;
+        }
+      } else if (selected?.kind === "wall") {
+        if (now - lastWallDebugTs > 1200) {
+          setStatus("Wall target ready.");
           lastWallDebugTs = now;
         }
+      } else if (selected?.kind === "floor" && now - lastWallDebugTs > 1200) {
+        setStatus("Floor target ready.");
+        lastWallDebugTs = now;
       }
   }
 
@@ -1685,6 +1689,7 @@ function onArSessionEnded() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
+  lastTrackingHintTs = 0;
   lastLockedWallSurface = null;
   lastLockedWallTs = 0;
   lastAutoSurfaceKind = null;
@@ -1736,7 +1741,7 @@ function initDesktopArScene() {
   const ambient = new THREE.HemisphereLight(0xffffff, 0x2a2a2a, 1.1);
   desktopScene.add(ambient);
 
-  desktopHydraGeometry = new THREE.PlaneGeometry(1.2, 0.675);
+  desktopHydraGeometry = new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS);
   desktopRenderer.domElement.addEventListener("pointerdown", onDesktopPointerDown);
 }
 
@@ -1881,24 +1886,6 @@ function bindEvents() {
   });
 
   randomBtn.addEventListener("click", applyRandomSnippet);
-  surfaceBtn.addEventListener("click", () => {
-    if (placementTarget === "auto") {
-      placementTarget = "floor";
-    } else if (placementTarget === "floor") {
-      placementTarget = "wall";
-    } else {
-      placementTarget = "auto";
-    }
-    updateSurfaceButtonUi();
-    if (placementTarget === "auto") {
-      setStatus("Target switched to auto floor/wall placement.");
-    } else if (placementTarget === "floor") {
-      setStatus("Target switched to floor placement.");
-    } else {
-      setStatus("Target switched to wall placement.");
-    }
-  });
-
   codeEditor.addEventListener("input", () => {
     currentSketchId = null;
     if (role === "controller") {
@@ -2007,7 +1994,6 @@ async function start() {
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
-  updateSurfaceButtonUi();
   bindEvents();
   codeEditor.value = defaultCode;
 
