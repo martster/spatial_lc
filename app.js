@@ -43,6 +43,7 @@ let xrScene;
 let xrCamera;
 let xrController;
 let xrReticle;
+let xrWallReticle;
 let xrHydraGeometry;
 let xrHitTestSource = null;
 let xrRefSpace = null;
@@ -67,7 +68,6 @@ let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
 let lastOverlayActionTs = 0;
-let suppressOverlayClickUntil = 0;
 let currentExitAction = null;
 let currentSketchId = null;
 let placementTarget = "floor";
@@ -992,6 +992,17 @@ function initArScene() {
   xrReticle.visible = false;
   xrScene.add(xrReticle);
 
+  xrWallReticle = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.38, 0.24),
+    new THREE.MeshBasicMaterial({
+      color: 0x5de9ff,
+      wireframe: true
+    })
+  );
+  xrWallReticle.matrixAutoUpdate = false;
+  xrWallReticle.visible = false;
+  xrScene.add(xrWallReticle);
+
   xrController = xrRenderer.xr.getController(0);
   xrController.addEventListener("select", onArSelect);
   xrScene.add(xrController);
@@ -1068,7 +1079,8 @@ function addPanelAt(
 }
 
 function onArSelect() {
-  if (!xrReticle?.visible) {
+  const activeReticle = placementTarget === "wall" ? xrWallReticle : xrReticle;
+  if (!activeReticle?.visible) {
     return;
   }
 
@@ -1077,9 +1089,9 @@ function onArSelect() {
   cameraPos.setFromMatrixPosition(xrCam.matrixWorld);
 
   const worldPos = new THREE.Vector3();
-  worldPos.setFromMatrixPosition(xrReticle.matrix);
+  worldPos.setFromMatrixPosition(activeReticle.matrix);
   const surfaceQuaternion = new THREE.Quaternion();
-  xrReticle.matrix.decompose(new THREE.Vector3(), surfaceQuaternion, new THREE.Vector3());
+  activeReticle.matrix.decompose(new THREE.Vector3(), surfaceQuaternion, new THREE.Vector3());
   const cameraForward = new THREE.Vector3();
   xrCam.getWorldDirection(cameraForward);
 
@@ -1130,27 +1142,44 @@ function onArFrame(_, frame) {
 
       if (placementTarget === "floor") {
         xrReticle.visible = true;
+        xrWallReticle.visible = false;
         xrReticle.matrix.fromArray(pose.transform.matrix);
       } else {
         const xrCam = xrRenderer.xr.getCamera(xrCamera);
         const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
         const cameraForward = new THREE.Vector3();
         xrCam.getWorldDirection(cameraForward);
+        cameraForward.y = 0;
+        if (cameraForward.lengthSq() < 0.0001) {
+          cameraForward.set(0, 0, -1);
+        }
         cameraForward.normalize();
 
-        const depth = THREE.MathUtils.clamp(cameraPos.distanceTo(hitPos), 0.8, 4.0);
+        const hitVec = hitPos.clone().sub(cameraPos);
+        hitVec.y = 0;
+        let depth = hitVec.length();
+        if (depth < 0.2) {
+          depth = 1.6;
+        }
+        depth = THREE.MathUtils.clamp(depth, 0.8, 4.0);
         const wallPos = cameraPos.clone().add(cameraForward.clone().multiplyScalar(depth));
-        const wallNormal = cameraPos.clone().sub(wallPos).normalize();
+        wallPos.y = cameraPos.y - 0.1;
+
+        const wallNormal = cameraPos.clone().sub(wallPos);
+        wallNormal.y = 0;
+        wallNormal.normalize();
 
         const wallQuat = new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3(0, 0, 1),
           wallNormal
         );
-        xrReticle.matrix.compose(wallPos, wallQuat, new THREE.Vector3(1, 1, 1));
-        xrReticle.visible = true;
+        xrWallReticle.matrix.compose(wallPos, wallQuat, new THREE.Vector3(1, 1, 1));
+        xrWallReticle.visible = true;
+        xrReticle.visible = false;
       }
     } else {
       xrReticle.visible = false;
+      xrWallReticle.visible = false;
     }
   }
 
@@ -1170,6 +1199,9 @@ function onArSessionEnded() {
   xrRefSpace = null;
   if (xrReticle) {
     xrReticle.visible = false;
+  }
+  if (xrWallReticle) {
+    xrWallReticle.visible = false;
   }
 
   hideArOverlay();
@@ -1400,13 +1432,6 @@ function bindEvents() {
       }
 
       const now = Date.now();
-      if (event.type === "click" && now < suppressOverlayClickUntil) {
-        return;
-      }
-      if (event.type === "touchend") {
-        suppressOverlayClickUntil = now + 700;
-      }
-
       if (now - lastOverlayActionTs < 220) {
         return;
       }
@@ -1421,8 +1446,7 @@ function bindEvents() {
       }
     };
 
-    btn.addEventListener("touchend", invokeVisible, { passive: false });
-    btn.addEventListener("click", invokeVisible, { passive: false });
+    btn.addEventListener("pointerup", invokeVisible, { passive: false });
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
