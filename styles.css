@@ -298,6 +298,7 @@ button:disabled {
   right: 0.9rem;
   z-index: 3000;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   pointer-events: auto;
   touch-action: manipulation;
@@ -307,6 +308,22 @@ button:disabled {
   pointer-events: auto;
   touch-action: manipulation;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+
+.ar-overlay-status {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.2rem;
+  background: rgba(7, 4, 23, 0.86);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.ar-overlay-status.error {
+  color: var(--danger);
 }
 
 .qr-dialog {

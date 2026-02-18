@@ -22,6 +22,7 @@ const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
 const overlayUndoBtn = document.getElementById("overlay-undo-btn");
 const overlayClearBtn = document.getElementById("overlay-clear-btn");
+const overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
@@ -171,6 +172,10 @@ function resolveRole() {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+  if (overlayStatusEl) {
+    overlayStatusEl.textContent = message;
+    overlayStatusEl.classList.toggle("error", isError);
+  }
 }
 
 function updateSurfaceButtonUi() {
