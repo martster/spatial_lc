@@ -71,6 +71,7 @@ let currentExitAction = null;
 let currentSketchId = null;
 let placementTarget = "auto";
 let currentReticleSurface = null;
+let clearArConfirmUntil = 0;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -194,12 +195,16 @@ function showArOverlay(exitLabel, onExit) {
   overlayRoot.addEventListener("beforexrselect", preventXrSelect);
   currentExitAction = onExit;
   overlayExitBtn.textContent = exitLabel;
+  overlayClearBtn.textContent = "Clear All";
+  clearArConfirmUntil = 0;
 }
 
 function hideArOverlay() {
   overlayRoot.hidden = true;
   overlayRoot.removeEventListener("beforexrselect", preventXrSelect);
   currentExitAction = null;
+  overlayClearBtn.textContent = "Clear All";
+  clearArConfirmUntil = 0;
 }
 
 function preventXrSelect(event) {
@@ -849,6 +854,8 @@ function disposePlacedPanel(entry) {
 }
 
 function removeLastPanel() {
+  clearArConfirmUntil = 0;
+  overlayClearBtn.textContent = "Clear All";
   const panel = placedPanels.pop();
   if (!panel) {
     setStatus("No placed panel to remove.");
@@ -864,6 +871,20 @@ function clearPlacedPanels() {
     disposePlacedPanel(placedPanels.pop());
   }
   setStatus("Cleared all placed panels.");
+}
+
+function clearPlacedPanelsWithConfirm() {
+  const now = Date.now();
+  if (now > clearArConfirmUntil) {
+    clearArConfirmUntil = now + 1600;
+    overlayClearBtn.textContent = "Tap Again to Clear";
+    setStatus("Tap 'Clear All' again to confirm.");
+    return;
+  }
+
+  clearPlacedPanels();
+  clearArConfirmUntil = 0;
+  overlayClearBtn.textContent = "Clear All";
 }
 
 async function setupCamera() {
@@ -1108,6 +1129,11 @@ async function startArSession() {
 }
 
 function onArFrame(_, frame) {
+  if (clearArConfirmUntil > 0 && Date.now() > clearArConfirmUntil) {
+    clearArConfirmUntil = 0;
+    overlayClearBtn.textContent = "Clear All";
+  }
+
   if (frame && xrHitTestSource && xrRefSpace) {
     const hitResults = frame.getHitTestResults(xrHitTestSource);
     if (hitResults.length > 0) {
@@ -1130,37 +1156,60 @@ function onArFrame(_, frame) {
         const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
         const hitPos = new THREE.Vector3().setFromMatrixPosition(matrix);
         const hitQuat = new THREE.Quaternion().setFromRotationMatrix(matrix);
-        const normal = plusY.clone().applyQuaternion(hitQuat).normalize();
-        const floorNormal = normal.dot(worldUp) < 0 ? normal.clone().negate() : normal.clone();
-        const upDot = Math.abs(normal.dot(worldUp));
-        const floorScore = upDot;
-        const wallScore = 1 - upDot;
 
-        const toCamera = cameraPos.clone().sub(hitPos);
-        const facingNormal = normal.dot(toCamera) < 0 ? normal.clone().negate() : normal.clone();
-        const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, facingNormal);
-        const floorQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, floorNormal);
+        for (const axis of [plusY, plusZ]) {
+          const rawNormal = axis.clone().applyQuaternion(hitQuat).normalize();
+          if (rawNormal.lengthSq() < 0.5) {
+            continue;
+          }
 
-        const wallCandidate = {
-          kind: "wall",
-          score: wallScore,
-          position: hitPos.clone(),
-          quaternion: wallQuat,
-          normal: facingNormal
-        };
-        const floorCandidate = {
-          kind: "floor",
-          score: floorScore,
-          position: hitPos.clone(),
-          quaternion: floorQuat,
-          normal: floorNormal
-        };
+          const floorNormal =
+            rawNormal.dot(worldUp) < 0 ? rawNormal.clone().negate() : rawNormal.clone();
+          const floorScore = Math.abs(floorNormal.dot(worldUp));
+          const floorQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, floorNormal);
+          const floorCandidate = {
+            kind: "floor",
+            score: floorScore,
+            position: hitPos.clone(),
+            quaternion: floorQuat,
+            normal: floorNormal
+          };
+          if (!bestFloor || floorCandidate.score > bestFloor.score) {
+            bestFloor = floorCandidate;
+          }
 
-        if (!bestFloor || floorCandidate.score > bestFloor.score) {
-          bestFloor = floorCandidate;
-        }
-        if (!bestWall || wallCandidate.score > bestWall.score) {
-          bestWall = wallCandidate;
+          const toCamera = cameraPos.clone().sub(hitPos);
+          const facingNormal =
+            rawNormal.dot(toCamera) < 0 ? rawNormal.clone().negate() : rawNormal.clone();
+          const wallNormal = facingNormal.clone();
+          wallNormal.y = 0;
+          if (wallNormal.lengthSq() < 0.05) {
+            continue;
+          }
+          wallNormal.normalize();
+
+          const verticality = 1 - Math.abs(facingNormal.dot(worldUp));
+          const camDistance = hitPos.distanceTo(cameraPos);
+          const heightDiff = Math.abs(hitPos.y - cameraPos.y);
+          const wallScore = verticality - Math.max(0, 0.45 - heightDiff);
+          const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal);
+          const wallCandidate = {
+            kind: "wall",
+            score: wallScore,
+            position: hitPos.clone(),
+            quaternion: wallQuat,
+            normal: wallNormal,
+            camDistance,
+            heightDiff
+          };
+
+          const passesWallGate =
+            wallCandidate.score > 0.58 &&
+            wallCandidate.camDistance > 0.35 &&
+            wallCandidate.heightDiff < 1.35;
+          if (passesWallGate && (!bestWall || wallCandidate.score > bestWall.score)) {
+            bestWall = wallCandidate;
+          }
         }
       }
 
@@ -1168,9 +1217,9 @@ function onArFrame(_, frame) {
       if (placementTarget === "floor") {
         selected = bestFloor;
       } else if (placementTarget === "wall") {
-        selected = bestWall?.score > 0.32 ? bestWall : null;
+        selected = bestWall || null;
       } else {
-        if (bestWall?.score > 0.62) {
+        if (bestWall?.score > 0.72) {
           selected = bestWall;
         } else {
           selected = bestFloor || bestWall;
@@ -1450,7 +1499,7 @@ function bindEvents() {
 
   const bindOverlayAction = (btn, action) => {
     let lastTs = 0;
-    const invoke = (event) => {
+    const invoke = (event, source) => {
       event.preventDefault();
       event.stopPropagation();
       if (typeof event.stopImmediatePropagation === "function") {
@@ -1458,27 +1507,37 @@ function bindEvents() {
       }
 
       const now = Date.now();
-      if (now - lastTs < 240) {
+      if (now - lastTs < 320) {
         return;
       }
       lastTs = now;
 
-      action();
-    };
-
-    const invokeVisible = (event) => {
-      if (!overlayRoot.hidden) {
-        invoke(event);
+      try {
+        action();
+      } catch (error) {
+        setStatus(`Overlay action failed (${source}): ${error.message}`, true);
       }
     };
 
-    btn.addEventListener("click", invokeVisible, { passive: false });
-    btn.addEventListener("pointerup", invokeVisible, { passive: false });
+    const invokeVisible = (event, source) => {
+      if (!overlayRoot.hidden) {
+        invoke(event, source);
+      }
+    };
+
+    btn.addEventListener(
+      "pointerdown",
+      (event) => invokeVisible(event, "pointerdown"),
+      { passive: false }
+    );
+    btn.addEventListener("click", (event) => invokeVisible(event, "click"), {
+      passive: false
+    });
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
-  bindOverlayAction(overlayClearBtn, clearPlacedPanels);
+  bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
 
   galleryGrid.addEventListener("click", handleGalleryAction);
   clearGalleryBtn.addEventListener("click", clearGallery);
