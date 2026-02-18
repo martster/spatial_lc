@@ -70,7 +70,7 @@ let lastOverlayActionTs = 0;
 let suppressOverlayClickUntil = 0;
 let currentExitAction = null;
 let currentSketchId = null;
-let surfaceMode = true;
+let placementTarget = "floor";
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -168,7 +168,7 @@ function setStatus(message, isError = false) {
 }
 
 function updateSurfaceButtonUi() {
-  surfaceBtn.textContent = surfaceMode ? "Surface: On" : "Surface: Off";
+  surfaceBtn.textContent = placementTarget === "floor" ? "Target: Floor" : "Target: Wall";
 }
 
 function setSyncStatus(message, isError = false) {
@@ -1009,47 +1009,25 @@ function addPanelAt(
   const plane = new THREE.Mesh(geometry.clone(), material);
 
   plane.position.copy(worldPos);
-  if (surfaceMode && surfaceQuaternion) {
-    const heightDelta = worldPos.y - cameraPos.y;
-    const looksLikeFloorHit = heightDelta < -0.35;
-    const forwardH = (cameraForward || new THREE.Vector3(0, 0, -1)).clone();
-    forwardH.y = 0;
-    if (forwardH.lengthSq() < 0.0001) {
-      forwardH.set(0, 0, -1);
-    }
-    forwardH.normalize();
-
-    // Prefer true wall orientation only when hit point is near eye level.
-    if (!looksLikeFloorHit) {
-      const surfaceNormal = new THREE.Vector3(0, 1, 0)
-        .applyQuaternion(surfaceQuaternion)
-        .normalize();
-      const forward = new THREE.Vector3(0, 0, 1);
-      const wallNormal = surfaceNormal.clone();
-      wallNormal.y = 0;
-      if (wallNormal.lengthSq() < 0.0001) {
-        wallNormal.copy(forwardH).multiplyScalar(-1);
-      } else {
-        wallNormal.normalize();
-      }
-      const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, wallNormal);
-      plane.quaternion.copy(alignQuat);
-      plane.position.add(wallNormal.multiplyScalar(0.01));
-      setStatus("Surface hit used.");
-    } else {
-      // Cross-device wall assist: ignore floor hit position and place a vertical panel ahead.
-      const distance = 1.65;
-      plane.position.copy(cameraPos).add(forwardH.multiplyScalar(distance));
-      plane.position.y = cameraPos.y - 0.08;
-
-      const normal = cameraPos.clone().sub(plane.position).normalize();
-      const forward = new THREE.Vector3(0, 0, 1);
-      plane.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(forward, normal));
-      setStatus("Wall assist used (floor-biased hit).");
-    }
+  if (placementTarget === "floor") {
+    const floorNormal = surfaceQuaternion
+      ? new THREE.Vector3(0, 1, 0).applyQuaternion(surfaceQuaternion).normalize()
+      : new THREE.Vector3(0, 1, 0);
+    const forward = new THREE.Vector3(0, 0, 1);
+    plane.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(forward, floorNormal));
+    plane.position.add(floorNormal.multiplyScalar(0.01));
+    setStatus("Placed on floor target.");
   } else {
-    plane.position.y += 0.35;
-    plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
+    // Wall target: use measured hit depth, but project placement along view ray.
+    const forward = (cameraForward || new THREE.Vector3(0, 0, -1)).clone().normalize();
+    const depth = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 0.6, 6.0);
+    plane.position.copy(cameraPos).add(forward.multiplyScalar(depth));
+
+    // Keep panel vertical and facing the user.
+    const faceTarget = cameraPos.clone();
+    faceTarget.y = plane.position.y;
+    plane.lookAt(faceTarget);
+    setStatus("Placed on wall target.");
   }
 
   scene.add(plane);
@@ -1360,9 +1338,13 @@ function bindEvents() {
 
   randomBtn.addEventListener("click", applyRandomSnippet);
   surfaceBtn.addEventListener("click", () => {
-    surfaceMode = !surfaceMode;
+    placementTarget = placementTarget === "floor" ? "wall" : "floor";
     updateSurfaceButtonUi();
-    setStatus(surfaceMode ? "Surface placement enabled (with wall assist)." : "Billboard placement enabled.");
+    setStatus(
+      placementTarget === "floor"
+        ? "Target switched to floor placement."
+        : "Target switched to wall placement."
+    );
   });
 
   codeEditor.addEventListener("input", () => {
