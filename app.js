@@ -996,7 +996,14 @@ function initArScene() {
   xrScene.add(xrController);
 }
 
-function addPanelAt(scene, geometry, cameraPos, worldPos, surfaceQuaternion = null) {
+function addPanelAt(
+  scene,
+  geometry,
+  cameraPos,
+  worldPos,
+  surfaceQuaternion = null,
+  cameraForward = null
+) {
   const { material, texture, panelEngine, snapshot } = createPanelMaterial(codeEditor.value);
   const plane = new THREE.Mesh(geometry.clone(), material);
 
@@ -1005,10 +1012,33 @@ function addPanelAt(scene, geometry, cameraPos, worldPos, surfaceQuaternion = nu
     const surfaceNormal = new THREE.Vector3(0, 1, 0)
       .applyQuaternion(surfaceQuaternion)
       .normalize();
-    const forward = new THREE.Vector3(0, 0, 1);
-    const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, surfaceNormal);
-    plane.quaternion.copy(alignQuat);
-    plane.position.add(surfaceNormal.multiplyScalar(0.01));
+    const wallLike = Math.abs(surfaceNormal.y) < 0.55;
+
+    if (wallLike) {
+      const forward = new THREE.Vector3(0, 0, 1);
+      const alignQuat = new THREE.Quaternion().setFromUnitVectors(forward, surfaceNormal);
+      plane.quaternion.copy(alignQuat);
+      plane.position.add(surfaceNormal.multiplyScalar(0.01));
+    } else {
+      // Wall assist fallback: if only floor hits are available, place a vertical panel in view direction.
+      const forwardH = (cameraForward || new THREE.Vector3(0, 0, -1)).clone();
+      forwardH.y = 0;
+      if (forwardH.lengthSq() < 0.0001) {
+        forwardH.set(worldPos.x - cameraPos.x, 0, worldPos.z - cameraPos.z);
+      }
+      if (forwardH.lengthSq() < 0.0001) {
+        forwardH.set(0, 0, -1);
+      }
+      forwardH.normalize();
+
+      const distance = THREE.MathUtils.clamp(cameraPos.distanceTo(worldPos), 0.8, 3.0);
+      plane.position.copy(cameraPos).add(forwardH.multiplyScalar(distance));
+      plane.position.y = THREE.MathUtils.clamp(worldPos.y, cameraPos.y - 0.6, cameraPos.y + 0.5);
+
+      const normal = cameraPos.clone().sub(plane.position).normalize();
+      const forward = new THREE.Vector3(0, 0, 1);
+      plane.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(forward, normal));
+    }
   } else {
     plane.position.y += 0.35;
     plane.lookAt(cameraPos.x, plane.position.y, cameraPos.z);
@@ -1068,8 +1098,10 @@ function onArSelect() {
   worldPos.setFromMatrixPosition(xrReticle.matrix);
   const surfaceQuaternion = new THREE.Quaternion();
   xrReticle.matrix.decompose(new THREE.Vector3(), surfaceQuaternion, new THREE.Vector3());
+  const cameraForward = new THREE.Vector3();
+  xrCam.getWorldDirection(cameraForward);
 
-  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos, surfaceQuaternion);
+  addPanelAt(xrScene, xrHydraGeometry, cameraPos, worldPos, surfaceQuaternion, cameraForward);
 }
 
 async function startArSession() {
@@ -1322,7 +1354,7 @@ function bindEvents() {
   surfaceBtn.addEventListener("click", () => {
     surfaceMode = !surfaceMode;
     updateSurfaceButtonUi();
-    setStatus(surfaceMode ? "Surface placement enabled." : "Billboard placement enabled.");
+    setStatus(surfaceMode ? "Surface placement enabled (with wall assist)." : "Billboard placement enabled.");
   });
 
   codeEditor.addEventListener("input", () => {
