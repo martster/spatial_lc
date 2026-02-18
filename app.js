@@ -78,6 +78,8 @@ let currentSketchId = null;
 let placementTarget = "auto";
 let currentReticleSurface = null;
 let clearArConfirmUntil = 0;
+let lastLockedWallSurface = null;
+let lastLockedWallTs = 0;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -91,6 +93,7 @@ const PANEL_RUNNER_WIDTH = isLikelyMobile ? 256 : 384;
 const PANEL_RUNNER_HEIGHT = isLikelyMobile ? 144 : 216;
 const MAX_PLACED_PANELS = isLikelyMobile ? 10 : 18;
 const MAX_ACTIVE_RUNNERS = 1;
+const WALL_LOCK_KEEP_MS = 14000;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -1220,6 +1223,21 @@ function getBestWallFromPlanes(frame, cameraPos, cameraForward, refSpace) {
   return best;
 }
 
+function projectPointToLockedWall(cameraPos, cameraForward, lockedWall) {
+  if (!lockedWall?.normal || !lockedWall?.position) {
+    return null;
+  }
+  const denom = lockedWall.normal.dot(cameraForward);
+  if (Math.abs(denom) < 0.06) {
+    return null;
+  }
+  const t = lockedWall.normal.dot(lockedWall.position.clone().sub(cameraPos)) / denom;
+  if (t < 0.2 || t > 8.0) {
+    return null;
+  }
+  return cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
+}
+
 async function startArSession() {
   initArScene();
 
@@ -1483,6 +1501,26 @@ function onArFrame(_, frame) {
         }
       }
 
+      if (!selected && placementTarget === "wall" && lastLockedWallSurface) {
+        const wallAge = Date.now() - lastLockedWallTs;
+        if (wallAge < WALL_LOCK_KEEP_MS) {
+          const projected = projectPointToLockedWall(
+            cameraPos,
+            cameraForward,
+            lastLockedWallSurface
+          );
+          if (projected) {
+            selected = {
+              kind: "wall",
+              score: 0.1,
+              position: projected,
+              quaternion: lastLockedWallSurface.quaternion.clone(),
+              normal: lastLockedWallSurface.normal.clone()
+            };
+          }
+        }
+      }
+
       if (selected?.kind === "floor") {
         xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrReticle.visible = true;
@@ -1493,6 +1531,12 @@ function onArFrame(_, frame) {
         xrWallReticle.visible = true;
         xrReticle.visible = false;
         currentReticleSurface = selected;
+        lastLockedWallSurface = {
+          position: selected.position.clone(),
+          quaternion: selected.quaternion.clone(),
+          normal: selected.normal.clone()
+        };
+        lastLockedWallTs = Date.now();
       } else {
         xrReticle.visible = false;
         xrWallReticle.visible = false;
@@ -1514,8 +1558,10 @@ function onArFrame(_, frame) {
               ? "plane:seen"
               : "plane:pending"
             : "plane:off";
+          const lockInfo =
+            Date.now() - lastLockedWallTs < WALL_LOCK_KEEP_MS ? "lock:on" : "lock:off";
           setStatus(
-            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo}`
+            `Wall scan -> wallHits:${wallHits.length} floorHits:${floorHits.length} ${planeInfo} ${lockInfo}`
           );
           lastWallDebugTs = now;
         }
@@ -1549,6 +1595,8 @@ function onArSessionEnded() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
+  lastLockedWallSurface = null;
+  lastLockedWallTs = 0;
   if (xrReticle) {
     xrReticle.visible = false;
   }
