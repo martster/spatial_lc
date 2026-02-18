@@ -1283,6 +1283,12 @@ function onArFrame(_, frame) {
         cameraForward.set(0, 0, -1);
       }
       cameraForward.normalize();
+      const cameraForwardFlat = cameraForward.clone();
+      cameraForwardFlat.y = 0;
+      if (cameraForwardFlat.lengthSq() < 0.01) {
+        cameraForwardFlat.set(0, 0, -1);
+      }
+      cameraForwardFlat.normalize();
       const worldUp = new THREE.Vector3(0, 1, 0);
       const plusY = new THREE.Vector3(0, 1, 0);
       const plusZ = new THREE.Vector3(0, 0, 1);
@@ -1296,6 +1302,49 @@ function onArFrame(_, frame) {
       }
       if (planeWall) {
         bestWall = planeWall;
+      }
+
+      // Fallback: derive wall candidates directly from dedicated wall rays.
+      for (const result of wallHits) {
+        const pose = result.getPose(xrRefSpace);
+        if (!pose) {
+          continue;
+        }
+        const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+        const hitPos = new THREE.Vector3().setFromMatrixPosition(matrix);
+        const toHit = hitPos.clone().sub(cameraPos);
+        const toHitFlat = toHit.clone();
+        toHitFlat.y = 0;
+        if (toHitFlat.lengthSq() < 0.02) {
+          continue;
+        }
+        const forwardAlign = cameraForwardFlat.dot(toHitFlat.clone().normalize());
+        const camDistance = toHit.length();
+        const heightDiff = Math.abs(hitPos.y - cameraPos.y);
+        if (camDistance < 0.25 || camDistance > 6.0 || forwardAlign < 0.18 || heightDiff > 1.45) {
+          continue;
+        }
+
+        const wallNormal = cameraPos.clone().sub(hitPos);
+        wallNormal.y = 0;
+        if (wallNormal.lengthSq() < 0.02) {
+          continue;
+        }
+        wallNormal.normalize();
+
+        const wallQuat = new THREE.Quaternion().setFromUnitVectors(plusZ, wallNormal);
+        const score =
+          0.9 + forwardAlign * 0.35 - Math.min(0.6, heightDiff * 0.35) - Math.min(0.5, camDistance * 0.03);
+        const wallCandidate = {
+          kind: "wall",
+          score,
+          position: hitPos.clone(),
+          quaternion: wallQuat,
+          normal: wallNormal
+        };
+        if (!bestWall || wallCandidate.score > bestWall.score) {
+          bestWall = wallCandidate;
+        }
       }
 
       for (const result of hitResults) {
