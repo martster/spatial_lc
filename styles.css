@@ -162,22 +162,6 @@ body {
   flex-wrap: wrap;
 }
 
-.archive-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
-}
-
-.archive-inputs input,
-.archive-filters select {
-  border: 1px solid #b648ff;
-  border-radius: 0.2rem;
-  padding: 0.5rem 0.6rem;
-  color: var(--text);
-  background: #120522;
-  font-family: "Space Grotesk", sans-serif;
-}
-
 button {
   border: 0;
   border-radius: 0.2rem;
@@ -258,26 +242,6 @@ button:disabled {
   gap: 0.6rem;
 }
 
-.archive-filters {
-  margin-top: 0.65rem;
-  display: grid;
-  gap: 0.45rem;
-}
-
-.archive-window-buttons {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.archive-window-buttons button {
-  background: #d9e1ff;
-}
-
-.archive-window-buttons button.active {
-  background: var(--lime);
-}
-
 .gallery-card {
   border: 1px solid var(--line);
   border-radius: 0.2rem;
@@ -297,13 +261,6 @@ button:disabled {
   padding: 0.45rem;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-.gallery-note {
-  margin: 0;
-  padding: 0 0.45rem 0.45rem;
-  font-size: 0.76rem;
-  color: #ffe48f;
 }
 
 .gallery-sketch-link {
@@ -432,10 +389,6 @@ body.viewer-role .controls label {
 
   #hydra-code {
     min-height: 170px;
-  }
-
-  .archive-inputs {
-    grid-template-columns: 1fr;
   }
 
   .ar-overlay {
