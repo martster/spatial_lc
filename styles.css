@@ -405,6 +405,10 @@ body.viewer-role .stage-wrapper {
   background: #9dff2e;
 }
 
+#overlay-restage-latest-btn {
+  background: #d2b0ff;
+}
+
 #overlay-replay-next-btn {
   background: #9be7ff;
 }

@@ -19,6 +19,7 @@ const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
+const overlayRestageLatestBtn = document.getElementById("overlay-restage-latest-btn");
 const overlayReplayStartBtn = document.getElementById("overlay-replay-start-btn");
 const overlayReplayNextBtn = document.getElementById("overlay-replay-next-btn");
 const overlayReplayStopBtn = document.getElementById("overlay-replay-stop-btn");
@@ -884,24 +885,23 @@ function saveGallery() {
   localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 120)));
 }
 
-function restageArchiveItem(item) {
-  const placement = deserializePlacement(item.spatial);
-  if (!placement) {
-    setStatus("This moment has no spatial placement data.", true);
+function restageLatestArchiveMoment() {
+  const latest = getFilteredGalleryItems()
+    .slice()
+    .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0))[0];
+  if (!latest) {
+    setStatus("No archive moment available yet.", true);
     return;
   }
-
   const activeXr = xrRenderer?.xr.getSession();
   if (!activeXr || !xrScene || !xrHydraGeometry) {
-    setStatus("Start AR first, then restage this archive moment.", true);
+    setStatus("Start AR first, then place latest moment.", true);
     return;
   }
-
-  if (typeof item.code === "string" && item.code.trim()) {
-    applyHydraCode(item.code);
+  const ok = applyArchiveMoment(latest, true);
+  if (ok) {
+    setStatus(`Placed latest moment: ${new Date(latest.ts).toLocaleString()}`);
   }
-  addPanelAt(xrScene, xrHydraGeometry, placement);
-  setStatus("Restaged archive moment in current room coordinates.");
 }
 
 function renderGallery() {
@@ -954,13 +954,6 @@ function renderGallery() {
     deleteBtn.dataset.id = item.id;
 
     actions.appendChild(loadBtn);
-    const restageBtn = document.createElement("button");
-    restageBtn.type = "button";
-    restageBtn.textContent = "Restage";
-    restageBtn.dataset.action = "restage";
-    restageBtn.dataset.id = item.id;
-    restageBtn.disabled = !item.spatial;
-    actions.appendChild(restageBtn);
     actions.appendChild(deleteBtn);
 
     if (item.sketch_id) {
@@ -1003,11 +996,6 @@ function handleGalleryAction(event) {
       broadcastToViewers({ type: "code", code: item.code });
     }
     setStatus("Loaded code from gallery moment.");
-    return;
-  }
-
-  if (action === "restage") {
-    restageArchiveItem(item);
     return;
   }
 
@@ -2269,6 +2257,7 @@ function bindEvents() {
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
+  bindOverlayAction(overlayRestageLatestBtn, restageLatestArchiveMoment);
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
   bindOverlayAction(overlayReplayStartBtn, startArchiveReplay);
