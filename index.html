@@ -42,6 +42,7 @@
         </p>
         <textarea id="hydra-code" spellcheck="false"></textarea>
         <input id="note-input" type="text" placeholder="note for the next placed moment" />
+        <input id="room-label-input" type="text" placeholder="room label (e.g. studio-a)" />
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
           <button id="reset-btn" type="button">Reset</button>
@@ -54,6 +55,8 @@
       <section class="gallery" aria-label="Placed visual gallery">
         <div class="gallery-head">
           <h2>Placed Moments</h2>
+          <button id="export-archive-btn" type="button">Export Archive</button>
+          <button id="import-archive-btn" type="button">Import Archive</button>
           <button id="clear-gallery-btn" type="button">Clear Gallery</button>
         </div>
         <p class="gallery-help">
@@ -67,6 +70,7 @@
           </div>
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
+        <input id="archive-import-input" type="file" accept="application/json,.json" hidden />
       </section>
     </main>
 

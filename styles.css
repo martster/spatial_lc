@@ -165,6 +165,15 @@ body {
   font-family: "Space Grotesk", sans-serif;
 }
 
+#room-label-input {
+  border: 1px solid #b648ff;
+  border-radius: 0.2rem;
+  padding: 0.5rem 0.6rem;
+  color: var(--text);
+  background: #120522;
+  font-family: "Space Grotesk", sans-serif;
+}
+
 .buttons {
   display: flex;
   gap: 0.5rem;
@@ -196,6 +205,14 @@ button#ar-btn,
 button#copy-link-btn,
 #overlay-undo-btn {
   background: var(--cyan);
+}
+
+button#import-archive-btn {
+  background: #ffd6ff;
+}
+
+button#export-archive-btn {
+  background: #9be7ff;
 }
 
 button#random-btn {

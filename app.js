@@ -3,6 +3,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.m
 const canvas = document.getElementById("hydra-canvas");
 const codeEditor = document.getElementById("hydra-code");
 const noteInput = document.getElementById("note-input");
+const roomLabelInput = document.getElementById("room-label-input");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
@@ -26,6 +27,9 @@ let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
+const exportArchiveBtn = document.getElementById("export-archive-btn");
+const importArchiveBtn = document.getElementById("import-archive-btn");
+const archiveImportInput = document.getElementById("archive-import-input");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
@@ -37,6 +41,7 @@ const qrCloseBtn = document.getElementById("qr-close-btn");
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
 const GALLERY_KEY = "spatial_lc_gallery_v3";
+const ARCHIVE_FORMAT_VERSION = 1;
 
 let hydra;
 let webcam;
@@ -421,10 +426,79 @@ function normalizeNote(value) {
     .slice(0, 180);
 }
 
+function normalizeRoomLabel(value) {
+  return String(value || "")
+    .trim()
+    .slice(0, 60);
+}
+
+function normalizeSpatial(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  if (!Array.isArray(value.position) || !Array.isArray(value.quaternion)) {
+    return null;
+  }
+  if (value.position.length !== 3 || value.quaternion.length !== 4) {
+    return null;
+  }
+  return {
+    kind: value.kind || "unknown",
+    source: value.source || "archive",
+    position: value.position.map((n) => Number(n) || 0),
+    quaternion: value.quaternion.map((n) => Number(n) || 0),
+    normal: Array.isArray(value.normal) && value.normal.length === 3
+      ? value.normal.map((n) => Number(n) || 0)
+      : null
+  };
+}
+
+function serializePlacement(placement) {
+  if (!placement?.position || !placement?.quaternion) {
+    return null;
+  }
+  return {
+    kind: placement.kind || "unknown",
+    source: placement.source || "tracked",
+    position: [placement.position.x, placement.position.y, placement.position.z],
+    quaternion: [
+      placement.quaternion.x,
+      placement.quaternion.y,
+      placement.quaternion.z,
+      placement.quaternion.w
+    ],
+    normal: placement.normal
+      ? [placement.normal.x, placement.normal.y, placement.normal.z]
+      : null
+  };
+}
+
+function deserializePlacement(spatial) {
+  const clean = normalizeSpatial(spatial);
+  if (!clean) {
+    return null;
+  }
+  return {
+    kind: clean.kind,
+    source: clean.source,
+    position: new THREE.Vector3(clean.position[0], clean.position[1], clean.position[2]),
+    quaternion: new THREE.Quaternion(
+      clean.quaternion[0],
+      clean.quaternion[1],
+      clean.quaternion[2],
+      clean.quaternion[3]
+    ),
+    normal: clean.normal
+      ? new THREE.Vector3(clean.normal[0], clean.normal[1], clean.normal[2])
+      : new THREE.Vector3(0, 1, 0)
+  };
+}
+
 function normalizeGalleryItem(entry) {
   return {
     ...entry,
-    note: normalizeNote(entry?.note)
+    note: normalizeNote(entry?.note),
+    spatial: normalizeSpatial(entry?.spatial)
   };
 }
 
@@ -460,7 +534,8 @@ function addGalleryItem(
   id = null,
   ts = Date.now(),
   note = "",
-  sketchId = currentSketchId
+  sketchId = currentSketchId,
+  spatial = null
 ) {
   const itemId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (galleryItems.some((entry) => entry.id === itemId)) {
@@ -474,7 +549,8 @@ function addGalleryItem(
     sketch_id: sketchId || null,
     mode,
     ts,
-    note: normalizeNote(note)
+    note: normalizeNote(note),
+    spatial: normalizeSpatial(spatial)
   });
 
   saveGallery();
@@ -502,7 +578,16 @@ function handleData(data, sourceConn = null) {
 
   if (data.type === "gallery-item" && data.item) {
     const item = data.item;
-    addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts, item.note, item.sketch_id);
+    addGalleryItem(
+      item.snapshot,
+      item.code,
+      item.mode,
+      item.id,
+      item.ts,
+      item.note,
+      item.sketch_id,
+      item.spatial
+    );
 
     if (actingAsHost) {
       broadcastToViewers({ type: "gallery-item", item }, sourceConn);
@@ -683,6 +768,117 @@ function saveGallery() {
   localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 120)));
 }
 
+function buildArchivePayload() {
+  return {
+    format_version: ARCHIVE_FORMAT_VERSION,
+    app: "argolis",
+    exported_at: Date.now(),
+    room_label: normalizeRoomLabel(roomLabelInput.value),
+    source_url: window.location.href,
+    items: galleryItems.slice(0, 240).map((item) => ({
+      id: item.id,
+      snapshot: item.snapshot,
+      code: item.code,
+      sketch_id: item.sketch_id || null,
+      mode: item.mode,
+      ts: item.ts,
+      note: item.note || "",
+      spatial: normalizeSpatial(item.spatial)
+    }))
+  };
+}
+
+function exportArchiveToFile() {
+  const payload = buildArchivePayload();
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const fileName = `argolis-archive-${stamp}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  setStatus(`Archive exported (${payload.items.length} moments).`);
+}
+
+function importArchivePayload(payload) {
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
+    throw new Error("Invalid archive format.");
+  }
+
+  let added = 0;
+  for (const raw of payload.items) {
+    if (!raw?.snapshot || !raw?.code) {
+      continue;
+    }
+    let id = raw.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    while (galleryItems.some((entry) => entry.id === id)) {
+      id = `${id}-dup`;
+    }
+    galleryItems.unshift(
+      normalizeGalleryItem({
+        id,
+        snapshot: raw.snapshot,
+        code: raw.code,
+        sketch_id: raw.sketch_id || null,
+        mode: raw.mode || "imported",
+        ts: raw.ts || Date.now(),
+        note: raw.note || "",
+        spatial: raw.spatial || null
+      })
+    );
+    added += 1;
+  }
+
+  if (payload.room_label) {
+    roomLabelInput.value = normalizeRoomLabel(payload.room_label);
+  }
+  saveGallery();
+  renderGallery();
+  setStatus(`Archive imported (${added} new moments).`);
+}
+
+async function onArchiveImportSelected(event) {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || !input.files?.[0]) {
+    return;
+  }
+  const file = input.files[0];
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    importArchivePayload(payload);
+  } catch (error) {
+    setStatus(`Archive import failed: ${error.message}`, true);
+  } finally {
+    input.value = "";
+  }
+}
+
+function restageArchiveItem(item) {
+  const placement = deserializePlacement(item.spatial);
+  if (!placement) {
+    setStatus("This moment has no spatial placement data.", true);
+    return;
+  }
+
+  const activeXr = xrRenderer?.xr.getSession();
+  if (!activeXr || !xrScene || !xrHydraGeometry) {
+    setStatus("Start AR first, then restage this archive moment.", true);
+    return;
+  }
+
+  if (typeof item.code === "string" && item.code.trim()) {
+    applyHydraCode(item.code);
+  }
+  noteInput.value = item.note || "";
+  addPanelAt(xrScene, xrHydraGeometry, placement);
+  setStatus("Restaged archive moment in current room coordinates.");
+}
+
 function renderGallery() {
   galleryGrid.innerHTML = "";
   updateArchiveFilterUi();
@@ -735,6 +931,13 @@ function renderGallery() {
     deleteBtn.dataset.id = item.id;
 
     actions.appendChild(loadBtn);
+    const restageBtn = document.createElement("button");
+    restageBtn.type = "button";
+    restageBtn.textContent = "Restage";
+    restageBtn.dataset.action = "restage";
+    restageBtn.dataset.id = item.id;
+    restageBtn.disabled = !item.spatial;
+    actions.appendChild(restageBtn);
     actions.appendChild(deleteBtn);
 
     if (item.sketch_id) {
@@ -779,6 +982,11 @@ function handleGalleryAction(event) {
       broadcastToViewers({ type: "code", code: item.code });
     }
     setStatus("Loaded code from gallery moment.");
+    return;
+  }
+
+  if (action === "restage") {
+    restageArchiveItem(item);
     return;
   }
 
@@ -1201,11 +1409,21 @@ function addPanelAt(scene, geometry, placement) {
     code: codeEditor.value,
     sketch_id: currentSketchId,
     note: normalizeNote(noteInput.value),
+    spatial: serializePlacement(placement),
     mode: arMode,
     ts: Date.now()
   };
 
-  addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts, item.note, item.sketch_id);
+  addGalleryItem(
+    item.snapshot,
+    item.code,
+    item.mode,
+    item.id,
+    item.ts,
+    item.note,
+    item.sketch_id,
+    item.spatial
+  );
 
   if (role === "viewer") {
     sendToHost({ type: "gallery-item", item });
@@ -2032,6 +2250,9 @@ function bindEvents() {
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
+  exportArchiveBtn.addEventListener("click", exportArchiveToFile);
+  importArchiveBtn.addEventListener("click", () => archiveImportInput.click());
+  archiveImportInput.addEventListener("change", onArchiveImportSelected);
   windowAllBtn.addEventListener("click", () => {
     archiveWindowFilter = "all";
     renderGallery();
