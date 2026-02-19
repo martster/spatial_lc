@@ -98,8 +98,8 @@ const AUTO_SURFACE_STICKY_MS = 900;
 const PANEL_WIDTH_METERS = 0.84;
 const PANEL_HEIGHT_METERS = PANEL_WIDTH_METERS * (9 / 16);
 const FLOOR_PANEL_OFFSET_M = 0.006;
-const WALL_PANEL_OFFSET_M = 0.0015;
-const ESTIMATED_WALL_OFFSET_M = 0.008;
+const WALL_PANEL_OFFSET_M = 0.00035;
+const ESTIMATED_WALL_OFFSET_M = 0.001;
 const TRACKING_HINT_COOLDOWN_MS = 3200;
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -1261,7 +1261,7 @@ function projectPointToLockedWall(cameraPos, cameraForward, lockedWall) {
   return cameraPos.clone().add(cameraForward.clone().multiplyScalar(t));
 }
 
-function buildEstimatedWallSurface(cameraPos, cameraForward, distance = 1.6) {
+function buildEstimatedWallSurface(cameraPos, cameraForward, distance = 1.2) {
   const plusZ = new THREE.Vector3(0, 0, 1);
   const forwardFlat = cameraForward.clone();
   forwardFlat.y = 0;
@@ -1573,9 +1573,9 @@ function onArFrame(_, frame) {
           };
 
           const passesWallGate =
-            wallCandidate.score > 0.58 &&
-            wallCandidate.camDistance > 0.35 &&
-            wallCandidate.heightDiff < 1.35;
+            wallCandidate.score > 0.45 &&
+            wallCandidate.camDistance > 0.25 &&
+            wallCandidate.heightDiff < 1.8;
           if (passesWallGate && (!bestWall || wallCandidate.score > bestWall.score)) {
             bestWall = wallCandidate;
           }
@@ -1604,12 +1604,20 @@ function onArFrame(_, frame) {
           }
         }
       }
+      if (!selected && cameraForward.y > -0.3) {
+        selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.2);
+      }
       if (selected?.kind === "floor") {
         xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrReticle.visible = true;
         xrWallReticle.visible = false;
         currentReticleSurface = selected;
       } else if (selected?.kind === "wall") {
+        const estimated = selected.source === "estimated";
+        if (xrWallReticle.material?.color) {
+          xrWallReticle.material.color.setHex(estimated ? 0xffcd00 : 0x5de9ff);
+          xrWallReticle.material.needsUpdate = true;
+        }
         xrWallReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrWallReticle.visible = true;
         xrReticle.visible = false;
@@ -1639,7 +1647,12 @@ function onArFrame(_, frame) {
       }
 
       const now = Date.now();
-      if (selected?.kind === "wall") {
+      if (selected?.kind === "wall" && selected?.source === "estimated") {
+        if (now - lastWallDebugTs > 1200) {
+          setStatus("Schaetze Wandposition. Fuer praezise Platzierung langsam mit Kanten/Strukturen scannen.");
+          lastWallDebugTs = now;
+        }
+      } else if (selected?.kind === "wall") {
         if (now - lastWallDebugTs > 1200) {
           setStatus("Wall target ready.");
           lastWallDebugTs = now;
