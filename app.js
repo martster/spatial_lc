@@ -526,6 +526,50 @@ function updateReplayUi() {
   overlayReplayStopBtn.disabled = !archiveReplayActive;
 }
 
+function cloneSurfacePlacement(surface) {
+  if (!surface?.position || !surface?.quaternion) {
+    return null;
+  }
+  return {
+    kind: surface.kind || "wall",
+    source: surface.source || "replay",
+    position: surface.position.clone(),
+    quaternion: surface.quaternion.clone(),
+    normal: surface.normal?.clone?.() || new THREE.Vector3(0, 1, 0)
+  };
+}
+
+function buildReplayPlacement(item) {
+  if (!xrRenderer || !xrScene || !xrHydraGeometry) {
+    return null;
+  }
+
+  const xrCam = xrRenderer.xr.getCamera(xrCamera);
+  const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+  const cameraForward = new THREE.Vector3();
+  xrCam.getWorldDirection(cameraForward);
+  if (cameraForward.lengthSq() < 0.01) {
+    cameraForward.set(0, 0, -1);
+  }
+  cameraForward.normalize();
+
+  if (currentReticleSurface) {
+    return cloneSurfacePlacement(currentReticleSurface);
+  }
+
+  const archived = deserializePlacement(item?.spatial);
+  if (archived?.position && archived?.quaternion) {
+    const toArchived = archived.position.clone().sub(cameraPos);
+    const distance = toArchived.length();
+    if (distance > 0.2 && distance < 3.5 && toArchived.normalize().dot(cameraForward) > 0.2) {
+      archived.source = "archive";
+      return archived;
+    }
+  }
+
+  return buildEstimatedWallSurface(cameraPos, cameraForward, 1.1);
+}
+
 function applyArchiveMoment(item, placeInAr = true) {
   if (!item) {
     return false;
@@ -541,23 +585,10 @@ function applyArchiveMoment(item, placeInAr = true) {
       setStatus("Start AR first to run cinematic replay.", true);
       return false;
     }
-    let placement = deserializePlacement(item.spatial);
+    const placement = buildReplayPlacement(item);
     if (!placement) {
-      if (currentReticleSurface) {
-        placement = {
-          kind: currentReticleSurface.kind,
-          source: currentReticleSurface.source || "replay",
-          position: currentReticleSurface.position.clone(),
-          quaternion: currentReticleSurface.quaternion.clone(),
-          normal: currentReticleSurface.normal.clone()
-        };
-      } else {
-        const xrCam = xrRenderer.xr.getCamera(xrCamera);
-        const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
-        const cameraForward = new THREE.Vector3();
-        xrCam.getWorldDirection(cameraForward);
-        placement = buildEstimatedWallSurface(cameraPos, cameraForward, 1.15);
-      }
+      setStatus("Replay could not determine a placement target yet. Move slowly and scan walls.", true);
+      return false;
     }
     addPanelAt(xrScene, xrHydraGeometry, placement);
   }
@@ -607,6 +638,7 @@ function startArchiveReplay() {
   archiveReplayActive = true;
   archiveReplayIndex = 0;
   updateReplayUi();
+  setStatus("Replay started. Moments are placed at the current AR target/in front of you.");
   const intervalMs = REPLAY_INTERVAL_MS;
   stepArchiveReplay(true);
   archiveReplayTimer = window.setInterval(() => {
