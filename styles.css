@@ -300,6 +300,10 @@ button:disabled {
   touch-action: manipulation;
 }
 
+.ar-overlay[hidden] {
+  display: none !important;
+}
+
 .ar-overlay button {
   pointer-events: auto;
   touch-action: manipulation;

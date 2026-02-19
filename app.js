@@ -36,7 +36,7 @@ const GALLERY_KEY = "spatial_lc_gallery_v3";
 
 let hydra;
 let webcam;
-let arMode = "desktop";
+let arMode = "unsupported";
 
 let xrRenderer;
 let xrScene;
@@ -52,7 +52,6 @@ let xrPlaneDetectionEnabled = false;
 let xrPlaneDetectionSeen = false;
 let lastPlaneHintTs = 0;
 let lastWallDebugTs = 0;
-let lastTrackingHintTs = 0;
 
 let desktopRenderer;
 let desktopScene;
@@ -99,7 +98,7 @@ const AUTO_SURFACE_STICKY_MS = 900;
 const PANEL_WIDTH_METERS = 0.84;
 const PANEL_HEIGHT_METERS = PANEL_WIDTH_METERS * (9 / 16);
 const FLOOR_PANEL_OFFSET_M = 0.006;
-const WALL_PANEL_OFFSET_M = 0.003;
+const WALL_PANEL_OFFSET_M = 0.0015;
 const ESTIMATED_WALL_OFFSET_M = 0.008;
 const TRACKING_HINT_COOLDOWN_MS = 3200;
 
@@ -971,17 +970,21 @@ async function detectArMode() {
   if (supportsWebXr) {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
+    arBtn.disabled = false;
     return;
   }
 
   if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
+    arBtn.disabled = false;
     return;
   }
 
-  arMode = "desktop";
-  arBtn.textContent = "Start Desktop AR";
+  arMode = "unsupported";
+  arBtn.textContent = "AR am Handy starten";
+  arBtn.disabled = true;
+  setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
 }
 
 async function startArExperience() {
@@ -996,7 +999,7 @@ async function startArExperience() {
       return;
     }
 
-    toggleDesktopArSession();
+    setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
   } catch (error) {
     setStatus(`AR failed: ${error.message}`, true);
   }
@@ -1148,15 +1151,7 @@ function onArSelect() {
     return;
   }
 
-  if (xrRenderer && xrCamera) {
-    const xrCam = xrRenderer.xr.getCamera(xrCamera);
-    const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
-    const cameraForward = new THREE.Vector3();
-    xrCam.getWorldDirection(cameraForward);
-    const estimated = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
-    addPanelAt(xrScene, xrHydraGeometry, estimated);
-    setStatus("Placed using estimated wall fallback.");
-  }
+  setStatus("Noch keine stabile Flaeche erkannt. Bitte langsam scannen und Kontraste/Kanten einbeziehen.");
 }
 
 function pointInPolygon2D(point, polygon) {
@@ -1359,7 +1354,6 @@ async function startArSession() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
-  lastTrackingHintTs = 0;
   lastAutoSurfaceKind = null;
   lastAutoSurfaceTs = 0;
 
@@ -1610,10 +1604,6 @@ function onArFrame(_, frame) {
           }
         }
       }
-      if (!selected && !bestFloor && cameraForward.y > -0.3) {
-        selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.6);
-      }
-
       if (selected?.kind === "floor") {
         xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
         xrReticle.visible = true;
@@ -1649,14 +1639,7 @@ function onArFrame(_, frame) {
       }
 
       const now = Date.now();
-      if (selected?.kind === "wall" && selected?.source === "estimated") {
-        if (now - lastTrackingHintTs > TRACKING_HINT_COOLDOWN_MS) {
-          setStatus(
-            "Using estimated wall. Plain white walls track poorly; add texture/contrast or move to a framed area."
-          );
-          lastTrackingHintTs = now;
-        }
-      } else if (selected?.kind === "wall") {
+      if (selected?.kind === "wall") {
         if (now - lastWallDebugTs > 1200) {
           setStatus("Wall target ready.");
           lastWallDebugTs = now;
@@ -1689,7 +1672,6 @@ function onArSessionEnded() {
   xrPlaneDetectionSeen = false;
   lastPlaneHintTs = 0;
   lastWallDebugTs = 0;
-  lastTrackingHintTs = 0;
   lastLockedWallSurface = null;
   lastLockedWallTs = 0;
   lastAutoSurfaceKind = null;
@@ -2005,9 +1987,17 @@ async function start() {
     autoSetupSession();
 
     if (role === "viewer") {
-      setStatus("Viewer ready. Start AR and place moments.");
+      if (arMode === "unsupported") {
+        setStatus("Viewer ready. Oeffne den Viewer-Link auf einem Smartphone fuer AR.");
+      } else {
+        setStatus("Viewer ready. Start AR and place moments.");
+      }
     } else {
-      setStatus("Host ready. Edit code here, place on viewer device.");
+      if (arMode === "unsupported") {
+        setStatus("Host ready. Edit code here; AR placement happens on the smartphone viewer.");
+      } else {
+        setStatus("Host ready. Edit code here, place on viewer device.");
+      }
     }
   } catch (error) {
     setStatus(`Startup failed: ${error.message}`, true);
