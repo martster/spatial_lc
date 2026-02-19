@@ -68,6 +68,12 @@
             <button id="archive-window-week" type="button">This Week</button>
             <button id="archive-window-today" type="button">Today</button>
           </div>
+          <div class="archive-replay-controls" role="group" aria-label="Cinematic replay controls">
+            <input id="archive-replay-interval" type="number" min="2" max="60" step="1" value="6" />
+            <button id="archive-replay-start" type="button">Start Replay</button>
+            <button id="archive-replay-next" type="button">Next Moment</button>
+            <button id="archive-replay-stop" type="button">Stop Replay</button>
+          </div>
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
         <input id="archive-import-input" type="file" accept="application/json,.json" hidden />

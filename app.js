@@ -33,6 +33,10 @@ const archiveImportInput = document.getElementById("archive-import-input");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
+const replayIntervalInput = document.getElementById("archive-replay-interval");
+const replayStartBtn = document.getElementById("archive-replay-start");
+const replayNextBtn = document.getElementById("archive-replay-next");
+const replayStopBtn = document.getElementById("archive-replay-stop");
 const qrDialog = document.getElementById("qr-dialog");
 const qrCodeEl = document.getElementById("qr-code");
 const qrUrlEl = document.getElementById("qr-url");
@@ -90,6 +94,9 @@ let lastLockedWallSurface = null;
 let lastLockedWallTs = 0;
 let lastAutoSurfaceKind = null;
 let lastAutoSurfaceTs = 0;
+let archiveReplayTimer = 0;
+let archiveReplayActive = false;
+let archiveReplayIndex = 0;
 const panelRunnerMount = document.createElement("div");
 panelRunnerMount.style.position = "fixed";
 panelRunnerMount.style.left = "-10000px";
@@ -527,6 +534,104 @@ function updateArchiveFilterUi() {
   windowTodayBtn.classList.toggle("active", archiveWindowFilter === "today");
 }
 
+function getReplaySequenceItems() {
+  return getFilteredGalleryItems()
+    .slice()
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+}
+
+function updateReplayUi() {
+  replayStartBtn.disabled = archiveReplayActive;
+  replayStopBtn.disabled = !archiveReplayActive;
+}
+
+function getCurrentReplayIntervalMs() {
+  const seconds = Math.max(2, Math.min(60, Number(replayIntervalInput.value) || 6));
+  replayIntervalInput.value = String(seconds);
+  return seconds * 1000;
+}
+
+function applyArchiveMoment(item, placeInAr = true) {
+  if (!item) {
+    return false;
+  }
+
+  if (typeof item.code === "string" && item.code.trim()) {
+    applyHydraCode(item.code);
+  }
+  noteInput.value = item.note || "";
+
+  if (placeInAr) {
+    const activeXr = xrRenderer?.xr.getSession();
+    if (activeXr && xrScene && xrHydraGeometry) {
+      let placement = deserializePlacement(item.spatial);
+      if (!placement) {
+        if (currentReticleSurface) {
+          placement = {
+            kind: currentReticleSurface.kind,
+            source: currentReticleSurface.source || "replay",
+            position: currentReticleSurface.position.clone(),
+            quaternion: currentReticleSurface.quaternion.clone(),
+            normal: currentReticleSurface.normal.clone()
+          };
+        } else {
+          const xrCam = xrRenderer.xr.getCamera(xrCamera);
+          const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+          const cameraForward = new THREE.Vector3();
+          xrCam.getWorldDirection(cameraForward);
+          placement = buildEstimatedWallSurface(cameraPos, cameraForward, 1.15);
+        }
+      }
+      addPanelAt(xrScene, xrHydraGeometry, placement);
+    }
+  }
+
+  return true;
+}
+
+function stepArchiveReplay(placeInAr = true) {
+  const sequence = getReplaySequenceItems();
+  if (sequence.length === 0) {
+    setStatus("Replay needs at least one archived moment.", true);
+    return;
+  }
+  const item = sequence[archiveReplayIndex % sequence.length];
+  archiveReplayIndex += 1;
+  applyArchiveMoment(item, placeInAr);
+  setStatus(
+    `Replay moment ${Math.min(archiveReplayIndex, sequence.length)}/${sequence.length}: ${new Date(item.ts).toLocaleString()}`
+  );
+}
+
+function stopArchiveReplay(announce = true) {
+  if (archiveReplayTimer) {
+    window.clearInterval(archiveReplayTimer);
+    archiveReplayTimer = 0;
+  }
+  archiveReplayActive = false;
+  updateReplayUi();
+  if (announce) {
+    setStatus("Cinematic replay stopped.");
+  }
+}
+
+function startArchiveReplay() {
+  const sequence = getReplaySequenceItems();
+  if (sequence.length === 0) {
+    setStatus("Replay needs at least one archived moment.", true);
+    return;
+  }
+  stopArchiveReplay(false);
+  archiveReplayActive = true;
+  archiveReplayIndex = 0;
+  updateReplayUi();
+  const intervalMs = getCurrentReplayIntervalMs();
+  stepArchiveReplay(true);
+  archiveReplayTimer = window.setInterval(() => {
+    stepArchiveReplay(true);
+  }, intervalMs);
+}
+
 function addGalleryItem(
   snapshot,
   code,
@@ -882,6 +987,7 @@ function restageArchiveItem(item) {
 function renderGallery() {
   galleryGrid.innerHTML = "";
   updateArchiveFilterUi();
+  updateReplayUi();
   const visibleItems = getFilteredGalleryItems();
 
   if (galleryItems.length === 0) {
@@ -999,6 +1105,7 @@ function handleGalleryAction(event) {
 
 function clearGallery() {
   galleryItems = [];
+  stopArchiveReplay(false);
   saveGallery();
   renderGallery();
 }
@@ -1956,6 +2063,7 @@ function onArFrame(_, frame) {
 
 function onArSessionEnded() {
   xrRenderer.setAnimationLoop(null);
+  stopArchiveReplay(false);
 
   if (xrRenderer.domElement.parentNode) {
     xrRenderer.domElement.parentNode.removeChild(xrRenderer.domElement);
@@ -2253,6 +2361,9 @@ function bindEvents() {
   exportArchiveBtn.addEventListener("click", exportArchiveToFile);
   importArchiveBtn.addEventListener("click", () => archiveImportInput.click());
   archiveImportInput.addEventListener("change", onArchiveImportSelected);
+  replayStartBtn.addEventListener("click", startArchiveReplay);
+  replayNextBtn.addEventListener("click", () => stepArchiveReplay(true));
+  replayStopBtn.addEventListener("click", () => stopArchiveReplay(true));
   windowAllBtn.addEventListener("click", () => {
     archiveWindowFilter = "all";
     renderGallery();

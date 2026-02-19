@@ -288,6 +288,34 @@ button:disabled {
   background: var(--lime);
 }
 
+.archive-replay-controls {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+#archive-replay-interval {
+  width: 84px;
+  border: 1px solid #b648ff;
+  border-radius: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  color: var(--text);
+  background: #120522;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+#archive-replay-start {
+  background: #9dff2e;
+}
+
+#archive-replay-next {
+  background: #9be7ff;
+}
+
+#archive-replay-stop {
+  background: #ffbe7a;
+}
+
 .gallery-card {
   border: 1px solid var(--line);
   border-radius: 0.2rem;
