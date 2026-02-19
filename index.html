@@ -41,6 +41,7 @@
           Need snippet ideas? <a href="https://hydra.ojack.xyz/" target="_blank" rel="noopener noreferrer">Browse Hydra Gallery</a>
         </p>
         <textarea id="hydra-code" spellcheck="false"></textarea>
+        <input id="note-input" type="text" placeholder="note for the next placed moment" />
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
           <button id="reset-btn" type="button">Reset</button>
@@ -58,6 +59,13 @@
         <p class="gallery-help">
           Every placed AR panel is captured here. Old placements keep their old code look.
         </p>
+        <div class="archive-filters">
+          <div class="archive-window-buttons" role="group" aria-label="Filter archive by time">
+            <button id="archive-window-all" type="button">All Time</button>
+            <button id="archive-window-week" type="button">This Week</button>
+            <button id="archive-window-today" type="button">Today</button>
+          </div>
+        </div>
         <div id="gallery-grid" class="gallery-grid"></div>
       </section>
     </main>

@@ -2,6 +2,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.m
 
 const canvas = document.getElementById("hydra-canvas");
 const codeEditor = document.getElementById("hydra-code");
+const noteInput = document.getElementById("note-input");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
@@ -25,6 +26,9 @@ let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
+const windowAllBtn = document.getElementById("archive-window-all");
+const windowWeekBtn = document.getElementById("archive-window-week");
+const windowTodayBtn = document.getElementById("archive-window-today");
 const qrDialog = document.getElementById("qr-dialog");
 const qrCodeEl = document.getElementById("qr-code");
 const qrUrlEl = document.getElementById("qr-url");
@@ -69,6 +73,7 @@ const viewerConnections = new Set();
 
 const placedPanels = [];
 let galleryItems = [];
+let archiveWindowFilter = "all";
 let gallerySnippets = [];
 let gallerySnippetsLoaded = false;
 let lastGoodFrameCanvas = null;
@@ -410,7 +415,53 @@ const pushCodeDebounced = debounce(() => {
   }
 }, 220);
 
-function addGalleryItem(snapshot, code, mode, id = null, ts = Date.now()) {
+function normalizeNote(value) {
+  return String(value || "")
+    .trim()
+    .slice(0, 180);
+}
+
+function normalizeGalleryItem(entry) {
+  return {
+    ...entry,
+    note: normalizeNote(entry?.note)
+  };
+}
+
+function isItemInWindow(item, windowFilter) {
+  if (windowFilter === "all") {
+    return true;
+  }
+  const now = Date.now();
+  const ts = Number(item.ts) || 0;
+  if (windowFilter === "today") {
+    return now - ts <= 24 * 60 * 60 * 1000;
+  }
+  if (windowFilter === "week") {
+    return now - ts <= 7 * 24 * 60 * 60 * 1000;
+  }
+  return true;
+}
+
+function getFilteredGalleryItems() {
+  return galleryItems.filter((item) => isItemInWindow(item, archiveWindowFilter));
+}
+
+function updateArchiveFilterUi() {
+  windowAllBtn.classList.toggle("active", archiveWindowFilter === "all");
+  windowWeekBtn.classList.toggle("active", archiveWindowFilter === "week");
+  windowTodayBtn.classList.toggle("active", archiveWindowFilter === "today");
+}
+
+function addGalleryItem(
+  snapshot,
+  code,
+  mode,
+  id = null,
+  ts = Date.now(),
+  note = "",
+  sketchId = currentSketchId
+) {
   const itemId = id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (galleryItems.some((entry) => entry.id === itemId)) {
     return itemId;
@@ -420,9 +471,10 @@ function addGalleryItem(snapshot, code, mode, id = null, ts = Date.now()) {
     id: itemId,
     snapshot,
     code,
-    sketch_id: currentSketchId,
+    sketch_id: sketchId || null,
     mode,
-    ts
+    ts,
+    note: normalizeNote(note)
   });
 
   saveGallery();
@@ -450,7 +502,7 @@ function handleData(data, sourceConn = null) {
 
   if (data.type === "gallery-item" && data.item) {
     const item = data.item;
-    addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts);
+    addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts, item.note, item.sketch_id);
 
     if (actingAsHost) {
       broadcastToViewers({ type: "gallery-item", item }, sourceConn);
@@ -621,7 +673,7 @@ function loadGallery() {
   try {
     const raw = localStorage.getItem(GALLERY_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map((entry) => normalizeGalleryItem(entry)) : [];
   } catch {
     return [];
   }
@@ -633,6 +685,8 @@ function saveGallery() {
 
 function renderGallery() {
   galleryGrid.innerHTML = "";
+  updateArchiveFilterUi();
+  const visibleItems = getFilteredGalleryItems();
 
   if (galleryItems.length === 0) {
     const empty = document.createElement("p");
@@ -642,7 +696,15 @@ function renderGallery() {
     return;
   }
 
-  for (const item of galleryItems) {
+  if (visibleItems.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "gallery-empty";
+    empty.textContent = "No moments for this time range yet.";
+    galleryGrid.appendChild(empty);
+    return;
+  }
+
+  for (const item of visibleItems) {
     const card = document.createElement("article");
     card.className = "gallery-card";
 
@@ -653,6 +715,9 @@ function renderGallery() {
     const meta = document.createElement("p");
     meta.className = "gallery-meta";
     meta.textContent = `${new Date(item.ts).toLocaleString()} • ${item.mode}`;
+    const note = document.createElement("p");
+    note.className = "gallery-note";
+    note.textContent = item.note || "No note.";
 
     const actions = document.createElement("div");
     actions.className = "gallery-actions";
@@ -684,6 +749,7 @@ function renderGallery() {
 
     card.appendChild(img);
     card.appendChild(meta);
+    card.appendChild(note);
     card.appendChild(actions);
     galleryGrid.appendChild(card);
   }
@@ -708,6 +774,7 @@ function handleGalleryAction(event) {
 
   if (action === "load") {
     applyHydraCode(item.code);
+    noteInput.value = item.note || "";
     if (actingAsHost) {
       broadcastToViewers({ type: "code", code: item.code });
     }
@@ -1132,11 +1199,13 @@ function addPanelAt(scene, geometry, placement) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     snapshot,
     code: codeEditor.value,
+    sketch_id: currentSketchId,
+    note: normalizeNote(noteInput.value),
     mode: arMode,
     ts: Date.now()
   };
 
-  addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts);
+  addGalleryItem(item.snapshot, item.code, item.mode, item.id, item.ts, item.note, item.sketch_id);
 
   if (role === "viewer") {
     sendToHost({ type: "gallery-item", item });
@@ -1963,6 +2032,18 @@ function bindEvents() {
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
+  windowAllBtn.addEventListener("click", () => {
+    archiveWindowFilter = "all";
+    renderGallery();
+  });
+  windowWeekBtn.addEventListener("click", () => {
+    archiveWindowFilter = "week";
+    renderGallery();
+  });
+  windowTodayBtn.addEventListener("click", () => {
+    archiveWindowFilter = "today";
+    renderGallery();
+  });
 
   galleryGrid.addEventListener("click", handleGalleryAction);
   clearGalleryBtn.addEventListener("click", clearGallery);
