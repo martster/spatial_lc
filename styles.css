@@ -156,24 +156,6 @@ body {
   font-size: 0.9rem;
 }
 
-#note-input {
-  border: 1px solid #b648ff;
-  border-radius: 0.2rem;
-  padding: 0.5rem 0.6rem;
-  color: var(--text);
-  background: #120522;
-  font-family: "Space Grotesk", sans-serif;
-}
-
-#room-label-input {
-  border: 1px solid #b648ff;
-  border-radius: 0.2rem;
-  padding: 0.5rem 0.6rem;
-  color: var(--text);
-  background: #120522;
-  font-family: "Space Grotesk", sans-serif;
-}
-
 .buttons {
   display: flex;
   gap: 0.5rem;
@@ -205,14 +187,6 @@ button#ar-btn,
 button#copy-link-btn,
 #overlay-undo-btn {
   background: var(--cyan);
-}
-
-button#import-archive-btn {
-  background: #ffd6ff;
-}
-
-button#export-archive-btn {
-  background: #9be7ff;
 }
 
 button#random-btn {
@@ -288,34 +262,6 @@ button:disabled {
   background: var(--lime);
 }
 
-.archive-replay-controls {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-#archive-replay-interval {
-  width: 84px;
-  border: 1px solid #b648ff;
-  border-radius: 0.2rem;
-  padding: 0.45rem 0.5rem;
-  color: var(--text);
-  background: #120522;
-  font-family: "Space Grotesk", sans-serif;
-}
-
-#archive-replay-start {
-  background: #9dff2e;
-}
-
-#archive-replay-next {
-  background: #9be7ff;
-}
-
-#archive-replay-stop {
-  background: #ffbe7a;
-}
-
 .gallery-card {
   border: 1px solid var(--line);
   border-radius: 0.2rem;
@@ -335,13 +281,6 @@ button:disabled {
   padding: 0.45rem;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-.gallery-note {
-  margin: 0;
-  padding: 0 0.45rem 0.45rem;
-  font-size: 0.76rem;
-  color: #ffe48f;
 }
 
 .gallery-sketch-link {
@@ -453,8 +392,25 @@ body.viewer-role #run-btn,
 body.viewer-role #reset-btn,
 body.viewer-role #random-btn,
 body.viewer-role #hydra-code,
+body.viewer-role .hydra-link-row,
 body.viewer-role .controls label {
   display: none;
+}
+
+body.viewer-role .stage-wrapper {
+  display: none;
+}
+
+#overlay-replay-start-btn {
+  background: #9dff2e;
+}
+
+#overlay-replay-next-btn {
+  background: #9be7ff;
+}
+
+#overlay-replay-stop-btn {
+  background: #ffbe7a;
 }
 
 @media (max-width: 760px) {

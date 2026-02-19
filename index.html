@@ -41,8 +41,6 @@
           Need snippet ideas? <a href="https://hydra.ojack.xyz/" target="_blank" rel="noopener noreferrer">Browse Hydra Gallery</a>
         </p>
         <textarea id="hydra-code" spellcheck="false"></textarea>
-        <input id="note-input" type="text" placeholder="note for the next placed moment" />
-        <input id="room-label-input" type="text" placeholder="room label (e.g. studio-a)" />
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
           <button id="reset-btn" type="button">Reset</button>
@@ -55,8 +53,6 @@
       <section class="gallery" aria-label="Placed visual gallery">
         <div class="gallery-head">
           <h2>Placed Moments</h2>
-          <button id="export-archive-btn" type="button">Export Archive</button>
-          <button id="import-archive-btn" type="button">Import Archive</button>
           <button id="clear-gallery-btn" type="button">Clear Gallery</button>
         </div>
         <p class="gallery-help">
@@ -68,20 +64,16 @@
             <button id="archive-window-week" type="button">This Week</button>
             <button id="archive-window-today" type="button">Today</button>
           </div>
-          <div class="archive-replay-controls" role="group" aria-label="Cinematic replay controls">
-            <input id="archive-replay-interval" type="number" min="2" max="60" step="1" value="6" />
-            <button id="archive-replay-start" type="button">Start Replay</button>
-            <button id="archive-replay-next" type="button">Next Moment</button>
-            <button id="archive-replay-stop" type="button">Stop Replay</button>
-          </div>
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
-        <input id="archive-import-input" type="file" accept="application/json,.json" hidden />
       </section>
     </main>
 
     <div id="ar-overlay" class="ar-overlay" hidden>
       <button id="overlay-exit-btn" type="button">Exit AR</button>
+      <button id="overlay-replay-start-btn" type="button">Replay</button>
+      <button id="overlay-replay-next-btn" type="button">Next</button>
+      <button id="overlay-replay-stop-btn" type="button">Stop</button>
       <button id="overlay-undo-btn" type="button">Undo Last</button>
       <button id="overlay-clear-btn" type="button">Clear All</button>
       <p id="overlay-status" class="ar-overlay-status" aria-live="polite"></p>

@@ -2,8 +2,6 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.m
 
 const canvas = document.getElementById("hydra-canvas");
 const codeEditor = document.getElementById("hydra-code");
-const noteInput = document.getElementById("note-input");
-const roomLabelInput = document.getElementById("room-label-input");
 const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
@@ -21,22 +19,18 @@ const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
+const overlayReplayStartBtn = document.getElementById("overlay-replay-start-btn");
+const overlayReplayNextBtn = document.getElementById("overlay-replay-next-btn");
+const overlayReplayStopBtn = document.getElementById("overlay-replay-stop-btn");
 const overlayUndoBtn = document.getElementById("overlay-undo-btn");
 const overlayClearBtn = document.getElementById("overlay-clear-btn");
 let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
-const exportArchiveBtn = document.getElementById("export-archive-btn");
-const importArchiveBtn = document.getElementById("import-archive-btn");
-const archiveImportInput = document.getElementById("archive-import-input");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
-const replayIntervalInput = document.getElementById("archive-replay-interval");
-const replayStartBtn = document.getElementById("archive-replay-start");
-const replayNextBtn = document.getElementById("archive-replay-next");
-const replayStopBtn = document.getElementById("archive-replay-stop");
 const qrDialog = document.getElementById("qr-dialog");
 const qrCodeEl = document.getElementById("qr-code");
 const qrUrlEl = document.getElementById("qr-url");
@@ -45,7 +39,6 @@ const qrCloseBtn = document.getElementById("qr-close-btn");
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
 const GALLERY_KEY = "spatial_lc_gallery_v3";
-const ARCHIVE_FORMAT_VERSION = 1;
 
 let hydra;
 let webcam;
@@ -118,6 +111,7 @@ const FLOOR_PANEL_OFFSET_M = 0.006;
 const WALL_PANEL_OFFSET_M = 0.00035;
 const ESTIMATED_WALL_OFFSET_M = 0.001;
 const TRACKING_HINT_COOLDOWN_MS = 3200;
+const REPLAY_INTERVAL_MS = 6000;
 
 const urlParams = new URLSearchParams(window.location.search);
 let role = resolveRole();
@@ -427,18 +421,6 @@ const pushCodeDebounced = debounce(() => {
   }
 }, 220);
 
-function normalizeNote(value) {
-  return String(value || "")
-    .trim()
-    .slice(0, 180);
-}
-
-function normalizeRoomLabel(value) {
-  return String(value || "")
-    .trim()
-    .slice(0, 60);
-}
-
 function normalizeSpatial(value) {
   if (!value || typeof value !== "object") {
     return null;
@@ -504,7 +486,6 @@ function deserializePlacement(spatial) {
 function normalizeGalleryItem(entry) {
   return {
     ...entry,
-    note: normalizeNote(entry?.note),
     spatial: normalizeSpatial(entry?.spatial)
   };
 }
@@ -541,14 +522,8 @@ function getReplaySequenceItems() {
 }
 
 function updateReplayUi() {
-  replayStartBtn.disabled = archiveReplayActive;
-  replayStopBtn.disabled = !archiveReplayActive;
-}
-
-function getCurrentReplayIntervalMs() {
-  const seconds = Math.max(2, Math.min(60, Number(replayIntervalInput.value) || 6));
-  replayIntervalInput.value = String(seconds);
-  return seconds * 1000;
+  overlayReplayStartBtn.disabled = archiveReplayActive;
+  overlayReplayStopBtn.disabled = !archiveReplayActive;
 }
 
 function applyArchiveMoment(item, placeInAr = true) {
@@ -559,31 +534,32 @@ function applyArchiveMoment(item, placeInAr = true) {
   if (typeof item.code === "string" && item.code.trim()) {
     applyHydraCode(item.code);
   }
-  noteInput.value = item.note || "";
 
   if (placeInAr) {
     const activeXr = xrRenderer?.xr.getSession();
-    if (activeXr && xrScene && xrHydraGeometry) {
-      let placement = deserializePlacement(item.spatial);
-      if (!placement) {
-        if (currentReticleSurface) {
-          placement = {
-            kind: currentReticleSurface.kind,
-            source: currentReticleSurface.source || "replay",
-            position: currentReticleSurface.position.clone(),
-            quaternion: currentReticleSurface.quaternion.clone(),
-            normal: currentReticleSurface.normal.clone()
-          };
-        } else {
-          const xrCam = xrRenderer.xr.getCamera(xrCamera);
-          const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
-          const cameraForward = new THREE.Vector3();
-          xrCam.getWorldDirection(cameraForward);
-          placement = buildEstimatedWallSurface(cameraPos, cameraForward, 1.15);
-        }
-      }
-      addPanelAt(xrScene, xrHydraGeometry, placement);
+    if (!activeXr || !xrScene || !xrHydraGeometry) {
+      setStatus("Start AR first to run cinematic replay.", true);
+      return false;
     }
+    let placement = deserializePlacement(item.spatial);
+    if (!placement) {
+      if (currentReticleSurface) {
+        placement = {
+          kind: currentReticleSurface.kind,
+          source: currentReticleSurface.source || "replay",
+          position: currentReticleSurface.position.clone(),
+          quaternion: currentReticleSurface.quaternion.clone(),
+          normal: currentReticleSurface.normal.clone()
+        };
+      } else {
+        const xrCam = xrRenderer.xr.getCamera(xrCamera);
+        const cameraPos = new THREE.Vector3().setFromMatrixPosition(xrCam.matrixWorld);
+        const cameraForward = new THREE.Vector3();
+        xrCam.getWorldDirection(cameraForward);
+        placement = buildEstimatedWallSurface(cameraPos, cameraForward, 1.15);
+      }
+    }
+    addPanelAt(xrScene, xrHydraGeometry, placement);
   }
 
   return true;
@@ -596,8 +572,14 @@ function stepArchiveReplay(placeInAr = true) {
     return;
   }
   const item = sequence[archiveReplayIndex % sequence.length];
+  const didApply = applyArchiveMoment(item, placeInAr);
+  if (!didApply) {
+    if (archiveReplayActive) {
+      stopArchiveReplay(false);
+    }
+    return;
+  }
   archiveReplayIndex += 1;
-  applyArchiveMoment(item, placeInAr);
   setStatus(
     `Replay moment ${Math.min(archiveReplayIndex, sequence.length)}/${sequence.length}: ${new Date(item.ts).toLocaleString()}`
   );
@@ -625,7 +607,7 @@ function startArchiveReplay() {
   archiveReplayActive = true;
   archiveReplayIndex = 0;
   updateReplayUi();
-  const intervalMs = getCurrentReplayIntervalMs();
+  const intervalMs = REPLAY_INTERVAL_MS;
   stepArchiveReplay(true);
   archiveReplayTimer = window.setInterval(() => {
     stepArchiveReplay(true);
@@ -638,7 +620,6 @@ function addGalleryItem(
   mode,
   id = null,
   ts = Date.now(),
-  note = "",
   sketchId = currentSketchId,
   spatial = null
 ) {
@@ -654,7 +635,6 @@ function addGalleryItem(
     sketch_id: sketchId || null,
     mode,
     ts,
-    note: normalizeNote(note),
     spatial: normalizeSpatial(spatial)
   });
 
@@ -689,7 +669,6 @@ function handleData(data, sourceConn = null) {
       item.mode,
       item.id,
       item.ts,
-      item.note,
       item.sketch_id,
       item.spatial
     );
@@ -873,96 +852,6 @@ function saveGallery() {
   localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 120)));
 }
 
-function buildArchivePayload() {
-  return {
-    format_version: ARCHIVE_FORMAT_VERSION,
-    app: "argolis",
-    exported_at: Date.now(),
-    room_label: normalizeRoomLabel(roomLabelInput.value),
-    source_url: window.location.href,
-    items: galleryItems.slice(0, 240).map((item) => ({
-      id: item.id,
-      snapshot: item.snapshot,
-      code: item.code,
-      sketch_id: item.sketch_id || null,
-      mode: item.mode,
-      ts: item.ts,
-      note: item.note || "",
-      spatial: normalizeSpatial(item.spatial)
-    }))
-  };
-}
-
-function exportArchiveToFile() {
-  const payload = buildArchivePayload();
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const fileName = `argolis-archive-${stamp}.json`;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-  setStatus(`Archive exported (${payload.items.length} moments).`);
-}
-
-function importArchivePayload(payload) {
-  if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
-    throw new Error("Invalid archive format.");
-  }
-
-  let added = 0;
-  for (const raw of payload.items) {
-    if (!raw?.snapshot || !raw?.code) {
-      continue;
-    }
-    let id = raw.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    while (galleryItems.some((entry) => entry.id === id)) {
-      id = `${id}-dup`;
-    }
-    galleryItems.unshift(
-      normalizeGalleryItem({
-        id,
-        snapshot: raw.snapshot,
-        code: raw.code,
-        sketch_id: raw.sketch_id || null,
-        mode: raw.mode || "imported",
-        ts: raw.ts || Date.now(),
-        note: raw.note || "",
-        spatial: raw.spatial || null
-      })
-    );
-    added += 1;
-  }
-
-  if (payload.room_label) {
-    roomLabelInput.value = normalizeRoomLabel(payload.room_label);
-  }
-  saveGallery();
-  renderGallery();
-  setStatus(`Archive imported (${added} new moments).`);
-}
-
-async function onArchiveImportSelected(event) {
-  const input = event.target;
-  if (!(input instanceof HTMLInputElement) || !input.files?.[0]) {
-    return;
-  }
-  const file = input.files[0];
-  try {
-    const text = await file.text();
-    const payload = JSON.parse(text);
-    importArchivePayload(payload);
-  } catch (error) {
-    setStatus(`Archive import failed: ${error.message}`, true);
-  } finally {
-    input.value = "";
-  }
-}
-
 function restageArchiveItem(item) {
   const placement = deserializePlacement(item.spatial);
   if (!placement) {
@@ -979,7 +868,6 @@ function restageArchiveItem(item) {
   if (typeof item.code === "string" && item.code.trim()) {
     applyHydraCode(item.code);
   }
-  noteInput.value = item.note || "";
   addPanelAt(xrScene, xrHydraGeometry, placement);
   setStatus("Restaged archive moment in current room coordinates.");
 }
@@ -1017,9 +905,6 @@ function renderGallery() {
     const meta = document.createElement("p");
     meta.className = "gallery-meta";
     meta.textContent = `${new Date(item.ts).toLocaleString()} • ${item.mode}`;
-    const note = document.createElement("p");
-    note.className = "gallery-note";
-    note.textContent = item.note || "No note.";
 
     const actions = document.createElement("div");
     actions.className = "gallery-actions";
@@ -1058,7 +943,6 @@ function renderGallery() {
 
     card.appendChild(img);
     card.appendChild(meta);
-    card.appendChild(note);
     card.appendChild(actions);
     galleryGrid.appendChild(card);
   }
@@ -1083,7 +967,6 @@ function handleGalleryAction(event) {
 
   if (action === "load") {
     applyHydraCode(item.code);
-    noteInput.value = item.note || "";
     if (actingAsHost) {
       broadcastToViewers({ type: "code", code: item.code });
     }
@@ -1515,7 +1398,6 @@ function addPanelAt(scene, geometry, placement) {
     snapshot,
     code: codeEditor.value,
     sketch_id: currentSketchId,
-    note: normalizeNote(noteInput.value),
     spatial: serializePlacement(placement),
     mode: arMode,
     ts: Date.now()
@@ -1527,7 +1409,6 @@ function addPanelAt(scene, geometry, placement) {
     item.mode,
     item.id,
     item.ts,
-    item.note,
     item.sketch_id,
     item.spatial
   );
@@ -2358,12 +2239,9 @@ function bindEvents() {
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
-  exportArchiveBtn.addEventListener("click", exportArchiveToFile);
-  importArchiveBtn.addEventListener("click", () => archiveImportInput.click());
-  archiveImportInput.addEventListener("change", onArchiveImportSelected);
-  replayStartBtn.addEventListener("click", startArchiveReplay);
-  replayNextBtn.addEventListener("click", () => stepArchiveReplay(true));
-  replayStopBtn.addEventListener("click", () => stopArchiveReplay(true));
+  bindOverlayAction(overlayReplayStartBtn, startArchiveReplay);
+  bindOverlayAction(overlayReplayNextBtn, () => stepArchiveReplay(true));
+  bindOverlayAction(overlayReplayStopBtn, () => stopArchiveReplay(true));
   windowAllBtn.addEventListener("click", () => {
     archiveWindowFilter = "all";
     renderGallery();
