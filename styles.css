@@ -330,6 +330,26 @@ button:disabled {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
 }
 
+#overlay-vr-prev-btn,
+#overlay-vr-next-btn {
+  display: none;
+  background: #8fd3ff;
+}
+
+body.vr-session #overlay-vr-prev-btn,
+body.vr-session #overlay-vr-next-btn {
+  display: inline-flex;
+}
+
+body.vr-session #overlay-restage-latest-btn,
+body.vr-session #overlay-replay-start-btn,
+body.vr-session #overlay-replay-next-btn,
+body.vr-session #overlay-replay-stop-btn,
+body.vr-session #overlay-undo-btn,
+body.vr-session #overlay-clear-btn {
+  display: none;
+}
+
 .ar-overlay-status {
   flex: 1 1 100%;
   margin: 0;

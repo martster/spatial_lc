@@ -6,6 +6,7 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
+const vrBtn = document.getElementById("vr-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
 
@@ -19,6 +20,8 @@ const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
+const overlayVrPrevBtn = document.getElementById("overlay-vr-prev-btn");
+const overlayVrNextBtn = document.getElementById("overlay-vr-next-btn");
 const overlayRestageLatestBtn = document.getElementById("overlay-restage-latest-btn");
 const overlayReplayStartBtn = document.getElementById("overlay-replay-start-btn");
 const overlayReplayNextBtn = document.getElementById("overlay-replay-next-btn");
@@ -44,6 +47,7 @@ const GALLERY_KEY = "spatial_lc_gallery_v3";
 let hydra;
 let webcam;
 let arMode = "unsupported";
+let vrMode = "unsupported";
 
 let xrRenderer;
 let xrScene;
@@ -67,6 +71,13 @@ let desktopHydraGeometry;
 let desktopActive = false;
 let desktopRaf = 0;
 let desktopHasSeedPanel = false;
+
+let vrRenderer;
+let vrScene;
+let vrCamera;
+let vrController;
+let vrArchivePanels = [];
+let vrFocusIndex = 0;
 
 let peer;
 let roomId = "";
@@ -232,7 +243,12 @@ function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
 }
 
-function showArOverlay(exitLabel, onExit) {
+function setImmersiveUiMode(mode) {
+  document.body.classList.toggle("ar-session", mode === "ar");
+  document.body.classList.toggle("vr-session", mode === "vr");
+}
+
+function showArOverlay(exitLabel, onExit, mode = "ar") {
   overlayRoot.hidden = false;
   overlayRoot.style.pointerEvents = "auto";
   overlayRoot.addEventListener("beforexrselect", preventXrSelect);
@@ -241,8 +257,9 @@ function showArOverlay(exitLabel, onExit) {
   overlayClearBtn.textContent = "Clear All";
   clearArConfirmUntil = 0;
   const badge = ensureOverlayStatusEl();
-  badge.textContent = "AR overlay active. Scanning...";
+  badge.textContent = mode === "vr" ? "VR archive active." : "AR overlay active. Scanning...";
   badge.classList.remove("error");
+  setImmersiveUiMode(mode);
 }
 
 function hideArOverlay() {
@@ -251,6 +268,7 @@ function hideArOverlay() {
   currentExitAction = null;
   overlayClearBtn.textContent = "Clear All";
   clearArConfirmUntil = 0;
+  setImmersiveUiMode(null);
 }
 
 function preventXrSelect(event) {
@@ -1247,33 +1265,51 @@ function isQuickLookCapable() {
 }
 
 async function detectArMode() {
-  const supportsWebXr =
+  const supportsArWebXr =
     window.isSecureContext &&
     !!navigator.xr?.isSessionSupported &&
     (await navigator.xr.isSessionSupported("immersive-ar").catch(() => false));
+  const supportsVrWebXr =
+    window.isSecureContext &&
+    !!navigator.xr?.isSessionSupported &&
+    (await navigator.xr.isSessionSupported("immersive-vr").catch(() => false));
 
-  if (supportsWebXr) {
+  if (supportsArWebXr) {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
     arBtn.disabled = false;
-    return;
-  }
-
-  if (isQuickLookCapable()) {
+  } else if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
     arBtn.disabled = false;
+  } else {
+    arMode = "unsupported";
+    arBtn.textContent = "AR am Handy starten";
+    arBtn.disabled = true;
+  }
+
+  if (supportsVrWebXr) {
+    vrMode = "webxr";
+    vrBtn.disabled = false;
+    vrBtn.textContent = "Start VR";
     return;
   }
 
-  arMode = "unsupported";
-  arBtn.textContent = "AR am Handy starten";
-  arBtn.disabled = true;
-  setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
+  vrMode = "unsupported";
+  vrBtn.disabled = true;
+  vrBtn.textContent = "VR not available";
+  if (arMode === "unsupported") {
+    setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
+  }
 }
 
 async function startArExperience() {
   try {
+    const activeVr = vrRenderer?.xr.getSession();
+    if (activeVr) {
+      await activeVr.end();
+    }
+
     if (arMode === "webxr") {
       await toggleArSession();
       return;
@@ -1287,6 +1323,192 @@ async function startArExperience() {
     setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
   } catch (error) {
     setStatus(`AR failed: ${error.message}`, true);
+  }
+}
+
+function updateVrPanelFocus() {
+  if (!vrArchivePanels.length) {
+    return;
+  }
+  for (let i = 0; i < vrArchivePanels.length; i += 1) {
+    const panel = vrArchivePanels[i];
+    const isActive = i === vrFocusIndex;
+    panel.mesh.scale.setScalar(isActive ? 1.08 : 1.0);
+    panel.material.color.setHex(isActive ? 0xffffff : 0xe8f2ff);
+  }
+
+  const active = vrArchivePanels[vrFocusIndex];
+  if (active) {
+    setStatus(
+      `VR moment ${vrFocusIndex + 1}/${vrArchivePanels.length}: ${new Date(active.item.ts).toLocaleString()}`
+    );
+  }
+}
+
+function focusNextVrPanel(step = 1) {
+  if (!vrArchivePanels.length) {
+    setStatus("No archived moments to browse in VR.", true);
+    return;
+  }
+  vrFocusIndex = (vrFocusIndex + step + vrArchivePanels.length) % vrArchivePanels.length;
+  updateVrPanelFocus();
+}
+
+function createVrArchivePanel(item, index, count) {
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xe8f2ff,
+    side: THREE.DoubleSide
+  });
+  const geometry = new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS);
+  const mesh = new THREE.Mesh(geometry, material);
+
+  const ring = (Math.PI * 2 * index) / Math.max(1, count);
+  const radius = 1.9 + (index % 3) * 0.18;
+  const height = 1.45 + ((index % 4) - 1.5) * 0.09;
+  mesh.position.set(Math.sin(ring) * radius, height, -Math.cos(ring) * radius);
+  mesh.lookAt(0, 1.5, 0);
+
+  if (typeof item.snapshot === "string" && item.snapshot.startsWith("data:image")) {
+    new THREE.TextureLoader().load(item.snapshot, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      material.map = texture;
+      material.needsUpdate = true;
+    });
+  }
+
+  return { mesh, material, item };
+}
+
+function clearVrArchivePanels() {
+  for (const panel of vrArchivePanels) {
+    vrScene?.remove(panel.mesh);
+    panel.mesh.geometry.dispose();
+    panel.material.map?.dispose?.();
+    panel.material.dispose();
+  }
+  vrArchivePanels = [];
+  vrFocusIndex = 0;
+}
+
+function buildVrArchiveRoom() {
+  clearVrArchivePanels();
+
+  const items = getFilteredGalleryItems()
+    .slice()
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0))
+    .slice(-24);
+
+  if (items.length === 0) {
+    const fallback = {
+      id: "live-preview",
+      snapshot: captureHydraFrame().toDataURL("image/jpeg", 0.88),
+      code: codeEditor.value,
+      mode: "vr",
+      ts: Date.now()
+    };
+    items.push(fallback);
+  }
+
+  items.forEach((item, idx) => {
+    const panel = createVrArchivePanel(item, idx, items.length);
+    vrArchivePanels.push(panel);
+    vrScene.add(panel.mesh);
+  });
+  vrFocusIndex = 0;
+  updateVrPanelFocus();
+}
+
+function initVrScene() {
+  if (vrRenderer) {
+    return;
+  }
+
+  vrRenderer = new THREE.WebGLRenderer({ antialias: true });
+  vrRenderer.xr.enabled = true;
+  vrRenderer.setPixelRatio(window.devicePixelRatio);
+  vrRenderer.setSize(window.innerWidth, window.innerHeight);
+  vrRenderer.domElement.style.position = "fixed";
+  vrRenderer.domElement.style.inset = "0";
+  vrRenderer.domElement.style.zIndex = "999";
+
+  vrScene = new THREE.Scene();
+  vrScene.background = new THREE.Color(0x0b0f18);
+  vrCamera = new THREE.PerspectiveCamera();
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x2d3542, 1.05);
+  vrScene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+  dir.position.set(2, 4, 1.5);
+  vrScene.add(dir);
+
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(5.5, 64),
+    new THREE.MeshStandardMaterial({ color: 0x101725, roughness: 0.98, metalness: 0.02 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  vrScene.add(floor);
+
+  const rings = new THREE.GridHelper(10, 26, 0x2a3e60, 0x16243b);
+  rings.position.y = 0.001;
+  vrScene.add(rings);
+
+  vrController = vrRenderer.xr.getController(0);
+  vrController.addEventListener("select", () => focusNextVrPanel(1));
+  vrScene.add(vrController);
+}
+
+function onVrFrame() {
+  vrRenderer.render(vrScene, vrCamera);
+}
+
+function onVrSessionEnded() {
+  vrRenderer.setAnimationLoop(null);
+  clearVrArchivePanels();
+
+  if (vrRenderer.domElement.parentNode) {
+    vrRenderer.domElement.parentNode.removeChild(vrRenderer.domElement);
+  }
+
+  hideArOverlay();
+  setAppVisible(true);
+  setStatus("VR session ended.");
+}
+
+async function startVrExperience() {
+  if (vrMode !== "webxr") {
+    setStatus("VR is not available in this browser/device.", true);
+    return;
+  }
+
+  try {
+    const activeAr = xrRenderer?.xr.getSession();
+    if (activeAr) {
+      await activeAr.end();
+    }
+
+    initVrScene();
+    buildVrArchiveRoom();
+    const session = await navigator.xr.requestSession("immersive-vr", {
+      optionalFeatures: ["local-floor"]
+    });
+
+    session.addEventListener("end", onVrSessionEnded);
+    await vrRenderer.xr.setSession(session);
+    document.body.appendChild(vrRenderer.domElement);
+    setAppVisible(false);
+    showArOverlay("Exit VR", async () => {
+      const active = vrRenderer?.xr.getSession();
+      if (active) {
+        await active.end();
+      }
+    }, "vr");
+    vrRenderer.setAnimationLoop(onVrFrame);
+    setStatus("VR archive live. Use Prev/Next or controller trigger to browse moments.");
+  } catch (error) {
+    setStatus(`VR failed: ${error.message}`, true);
   }
 }
 
@@ -2151,6 +2373,10 @@ function onWindowResize() {
     xrRenderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  if (vrRenderer) {
+    vrRenderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
   if (desktopRenderer && desktopCamera) {
     desktopCamera.aspect = window.innerWidth / window.innerHeight;
     desktopCamera.updateProjectionMatrix();
@@ -2185,6 +2411,7 @@ function bindEvents() {
   });
 
   arBtn.addEventListener("click", startArExperience);
+  vrBtn.addEventListener("click", startVrExperience);
 
   hostBtn.addEventListener("click", () => {
     role = "controller";
@@ -2257,6 +2484,8 @@ function bindEvents() {
   };
 
   bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
+  bindOverlayAction(overlayVrPrevBtn, () => focusNextVrPanel(-1));
+  bindOverlayAction(overlayVrNextBtn, () => focusNextVrPanel(1));
   bindOverlayAction(overlayRestageLatestBtn, restageLatestArchiveMoment);
   bindOverlayAction(overlayUndoBtn, removeLastPanel);
   bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
