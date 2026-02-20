@@ -278,6 +278,14 @@ function toggleSyncPanel() {
   setPanelVisibility(syncPanel, toggleSyncBtn, syncPanel.hidden);
 }
 
+async function triggerShareFromDock() {
+  setPanelVisibility(syncPanel, toggleSyncBtn, true);
+  if (shareSessionDetails?.hidden) {
+    toggleShareSessionDetails();
+  }
+  await shareViewerLink();
+}
+
 function toggleGalleryPanel() {
   if (!galleryPanel || !toggleGalleryBtn) {
     return;
@@ -605,8 +613,12 @@ function getReplaySequenceItems() {
 }
 
 function updateReplayUi() {
-  overlayReplayStartBtn.disabled = archiveReplayActive;
-  overlayReplayStopBtn.disabled = !archiveReplayActive;
+  if (overlayReplayStartBtn) {
+    overlayReplayStartBtn.disabled = archiveReplayActive;
+  }
+  if (overlayReplayStopBtn) {
+    overlayReplayStopBtn.disabled = !archiveReplayActive;
+  }
   if (previewReplayBtn) {
     previewReplayBtn.textContent = archiveReplayActive ? "Stop Preview" : "Preview Replay";
   }
@@ -2677,7 +2689,9 @@ function onWindowResize() {
 }
 
 function bindEvents() {
-  toggleSyncBtn?.addEventListener("click", toggleSyncPanel);
+  toggleSyncBtn?.addEventListener("click", () => {
+    triggerShareFromDock();
+  });
   toggleGalleryBtn?.addEventListener("click", toggleGalleryPanel);
   openShareSessionBtn?.addEventListener("click", toggleShareSessionDetails);
 
