@@ -22,11 +22,11 @@
           Host edits code on laptop. Viewer opens the shared link on phone and places visuals in AR.
         </p>
         <div class="sync-row">
-          <input id="room-id" type="text" placeholder="room id (e.g. berlin-01)" />
-          <button id="host-btn" type="button">Host Session</button>
-          <button id="join-btn" type="button">Join as Viewer</button>
+          <input id="room-id" type="text" placeholder="room id (e.g. berlin-01)" hidden />
+          <button id="host-btn" type="button" hidden>Host Session</button>
+          <button id="join-btn" type="button" hidden>Join as Viewer</button>
           <button id="copy-link-btn" type="button">Share Viewer Link</button>
-          <button id="qr-link-btn" type="button">Show QR</button>
+          <button id="publish-archive-btn" type="button">Publish Archive</button>
         </div>
         <p id="sync-status" aria-live="polite">No remote session.</p>
       </section>
@@ -43,10 +43,7 @@
         <textarea id="hydra-code" spellcheck="false"></textarea>
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
-          <button id="reset-btn" type="button">Reset</button>
-          <button id="random-btn" type="button">Random</button>
           <button id="ar-btn" type="button">Start AR</button>
-          <button id="vr-btn" type="button">Start VR</button>
         </div>
         <p id="status" role="status" aria-live="polite"></p>
       </section>
@@ -72,8 +69,6 @@
 
     <div id="ar-overlay" class="ar-overlay" hidden>
       <button id="overlay-exit-btn" type="button">Exit AR</button>
-      <button id="overlay-vr-prev-btn" type="button">Prev</button>
-      <button id="overlay-vr-next-btn" type="button">Next</button>
       <button id="overlay-restage-latest-btn" type="button">Latest</button>
       <button id="overlay-replay-start-btn" type="button">Replay</button>
       <button id="overlay-replay-next-btn" type="button">Next</button>
@@ -83,18 +78,19 @@
       <p id="overlay-status" class="ar-overlay-status" aria-live="polite"></p>
     </div>
 
-    <dialog id="qr-dialog" class="qr-dialog">
-      <div class="qr-dialog-inner">
-        <h3>Viewer QR</h3>
-        <p>Scan with your phone camera, then tap Join as Viewer.</p>
-        <div id="qr-code"></div>
-        <p id="qr-url"></p>
-        <button id="qr-close-btn" type="button">Close</button>
+    <section id="archive-viewer" class="archive-viewer" hidden>
+      <div class="archive-stage-wrap">
+        <canvas id="archive-canvas"></canvas>
       </div>
-    </dialog>
+      <div class="archive-controls">
+        <button id="archive-prev-btn" type="button">Prev</button>
+        <button id="archive-next-btn" type="button">Next</button>
+        <button id="archive-autoplay-btn" type="button">Autoplay</button>
+      </div>
+      <p id="archive-status" aria-live="polite"></p>
+    </section>
 
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/hydra-synth"></script>
     <script src="app.js" type="module"></script>
   </body>

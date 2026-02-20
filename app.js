@@ -6,7 +6,7 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
-const vrBtn = document.getElementById("vr-btn");
+const publishArchiveBtn = document.getElementById("publish-archive-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
 
@@ -15,13 +15,10 @@ const roomIdInput = document.getElementById("room-id");
 const hostBtn = document.getElementById("host-btn");
 const joinBtn = document.getElementById("join-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
-const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
-const overlayVrPrevBtn = document.getElementById("overlay-vr-prev-btn");
-const overlayVrNextBtn = document.getElementById("overlay-vr-next-btn");
 const overlayRestageLatestBtn = document.getElementById("overlay-restage-latest-btn");
 const overlayReplayStartBtn = document.getElementById("overlay-replay-start-btn");
 const overlayReplayNextBtn = document.getElementById("overlay-replay-next-btn");
@@ -35,10 +32,12 @@ const clearGalleryBtn = document.getElementById("clear-gallery-btn");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
-const qrDialog = document.getElementById("qr-dialog");
-const qrCodeEl = document.getElementById("qr-code");
-const qrUrlEl = document.getElementById("qr-url");
-const qrCloseBtn = document.getElementById("qr-close-btn");
+const archiveViewerRoot = document.getElementById("archive-viewer");
+const archiveCanvas = document.getElementById("archive-canvas");
+const archivePrevBtn = document.getElementById("archive-prev-btn");
+const archiveNextBtn = document.getElementById("archive-next-btn");
+const archiveAutoplayBtn = document.getElementById("archive-autoplay-btn");
+const archiveStatusEl = document.getElementById("archive-status");
 
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
@@ -78,6 +77,14 @@ let vrCamera;
 let vrController;
 let vrArchivePanels = [];
 let vrFocusIndex = 0;
+
+let archiveRenderer;
+let archiveScene;
+let archiveCamera;
+let archivePanels = [];
+let archiveFocusIndex = 0;
+let archiveAutoplayTimer = 0;
+let archiveRaf = 0;
 
 let peer;
 let roomId = "";
@@ -187,7 +194,7 @@ render(o0)
 
 function resolveRole() {
   const explicit = urlParams.get("role");
-  if (explicit === "viewer" || explicit === "controller") {
+  if (explicit === "viewer" || explicit === "controller" || explicit === "archive") {
     return explicit;
   }
 
@@ -365,13 +372,25 @@ async function ensureGallerySnippetsLoaded() {
 }
 
 function updateRoleUI() {
-  roleChip.textContent = role === "controller" ? "Role: controller (host)" : "Role: viewer (ar)";
-  if (role === "viewer") {
+  if (role === "controller") {
+    roleChip.textContent = "Role: controller";
+  } else if (role === "archive") {
+    roleChip.textContent = "Role: archive viewer";
+  } else {
+    roleChip.textContent = "Role: viewer (ar)";
+  }
+
+  if (role === "viewer" || role === "archive") {
     document.body.classList.add("viewer-role");
     codeEditor.readOnly = true;
   } else {
     document.body.classList.remove("viewer-role");
     codeEditor.readOnly = false;
+  }
+
+  document.body.classList.toggle("archive-role", role === "archive");
+  if (archiveViewerRoot) {
+    archiveViewerRoot.hidden = role !== "archive";
   }
 }
 
@@ -701,11 +720,14 @@ function handleData(data, sourceConn = null) {
 
   if (data.type === "request-sync" && actingAsHost) {
     sourceConn?.send({ type: "code", code: codeEditor.value });
+    sourceConn?.send({ type: "gallery-sync", items: galleryItems.slice(0, 120) });
     return;
   }
 
   if (data.type === "code" && typeof data.code === "string") {
-    applyHydraCode(data.code, true);
+    if (role !== "archive") {
+      applyHydraCode(data.code, true);
+    }
     if (role === "viewer") {
       setStatus("Remote code received.");
     }
@@ -727,6 +749,13 @@ function handleData(data, sourceConn = null) {
     if (actingAsHost) {
       broadcastToViewers({ type: "gallery-item", item }, sourceConn);
     }
+    return;
+  }
+
+  if (data.type === "gallery-sync" && Array.isArray(data.items)) {
+    galleryItems = data.items.map((entry) => normalizeGalleryItem(entry));
+    saveGallery();
+    renderGallery();
   }
 }
 
@@ -811,8 +840,8 @@ function joinSession() {
     hostConn = peer.connect(roomId, { reliable: true });
 
     hostConn.on("open", () => {
-      updateUrlState("viewer", roomId);
-      setSyncStatus(`Viewer connected to: ${roomId}`);
+      updateUrlState(role === "archive" ? "archive" : "viewer", roomId);
+      setSyncStatus(`${role === "archive" ? "Archive viewer" : "Viewer"} connected to: ${roomId}`);
       hostConn.send({ type: "request-sync" });
     });
 
@@ -842,6 +871,17 @@ function buildViewerUrl() {
   return { room, url: url.toString() };
 }
 
+function buildArchiveUrl() {
+  const room =
+    (roomIdInput.value || "").trim() ||
+    new URLSearchParams(window.location.search).get("room") ||
+    "";
+  const url = new URL(window.location.href);
+  url.searchParams.set("role", "archive");
+  url.searchParams.set("room", room);
+  return { room, url: url.toString() };
+}
+
 async function shareViewerLink() {
   const { room, url } = buildViewerUrl();
   if (!room) {
@@ -867,26 +907,19 @@ async function shareViewerLink() {
   }
 }
 
-function showViewerQr() {
-  const { room, url } = buildViewerUrl();
+async function publishArchiveLink() {
+  const { room, url } = buildArchiveUrl();
   if (!room) {
-    setSyncStatus("Host session first, then open QR.", true);
+    setSyncStatus("Start host session first.", true);
     return;
   }
 
-  qrCodeEl.innerHTML = "";
-  if (window.QRCode) {
-    new window.QRCode(qrCodeEl, {
-      text: url,
-      width: 220,
-      height: 220
-    });
-  } else {
-    qrCodeEl.textContent = "QR library unavailable.";
+  try {
+    await navigator.clipboard.writeText(url);
+    setSyncStatus("Archive link copied.");
+  } catch {
+    setSyncStatus(`Archive link: ${url}`);
   }
-
-  qrUrlEl.textContent = url;
-  qrDialog.showModal();
 }
 
 function loadGallery() {
@@ -901,6 +934,154 @@ function loadGallery() {
 
 function saveGallery() {
   localStorage.setItem(GALLERY_KEY, JSON.stringify(galleryItems.slice(0, 120)));
+}
+
+function setArchiveStatus(message, isError = false) {
+  if (!archiveStatusEl) {
+    return;
+  }
+  archiveStatusEl.textContent = message;
+  archiveStatusEl.classList.toggle("error", isError);
+}
+
+function initArchiveViewerScene() {
+  if (!archiveCanvas || archiveRenderer) {
+    return;
+  }
+
+  archiveRenderer = new THREE.WebGLRenderer({
+    canvas: archiveCanvas,
+    antialias: true,
+    alpha: true
+  });
+  archiveRenderer.setPixelRatio(window.devicePixelRatio);
+  archiveRenderer.setSize(archiveCanvas.clientWidth, archiveCanvas.clientHeight, false);
+
+  archiveScene = new THREE.Scene();
+  archiveScene.background = new THREE.Color(0xf7f7f6);
+  archiveCamera = new THREE.PerspectiveCamera(
+    58,
+    archiveCanvas.clientWidth / Math.max(1, archiveCanvas.clientHeight),
+    0.01,
+    40
+  );
+  archiveCamera.position.set(0, 1.55, 2.3);
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xd8dde6, 1.1);
+  const key = new THREE.DirectionalLight(0xffffff, 0.65);
+  key.position.set(2.3, 3.5, 1.4);
+  archiveScene.add(hemi, key);
+
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(8, 64),
+    new THREE.MeshStandardMaterial({ color: 0xefefed, roughness: 0.98, metalness: 0.01 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  archiveScene.add(floor);
+
+  const render = () => {
+    if (!archiveRenderer || role !== "archive") {
+      return;
+    }
+    archiveRenderer.render(archiveScene, archiveCamera);
+    archiveRaf = requestAnimationFrame(render);
+  };
+  render();
+}
+
+function clearArchiveViewerPanels() {
+  for (const entry of archivePanels) {
+    archiveScene?.remove(entry.mesh);
+    entry.mesh.geometry.dispose();
+    entry.material.map?.dispose?.();
+    entry.material.dispose();
+  }
+  archivePanels = [];
+  archiveFocusIndex = 0;
+}
+
+function focusArchivePanel(nextIndex = archiveFocusIndex) {
+  if (!archivePanels.length) {
+    setArchiveStatus("No archived moments yet.", true);
+    return;
+  }
+  archiveFocusIndex = (nextIndex + archivePanels.length) % archivePanels.length;
+  archivePanels.forEach((entry, idx) => {
+    const offset = idx - archiveFocusIndex;
+    entry.mesh.position.set(offset * 1.08, 1.55, -2.25 - Math.abs(offset) * 0.45);
+    entry.mesh.rotation.y = -offset * 0.17;
+    const scale = idx === archiveFocusIndex ? 1.0 : 0.9;
+    entry.mesh.scale.setScalar(scale);
+  });
+
+  const active = archivePanels[archiveFocusIndex];
+  setArchiveStatus(
+    `Moment ${archiveFocusIndex + 1}/${archivePanels.length} · ${new Date(active.item.ts).toLocaleString()}`
+  );
+}
+
+function rebuildArchiveViewer() {
+  if (role !== "archive") {
+    return;
+  }
+  initArchiveViewerScene();
+  if (!archiveScene) {
+    return;
+  }
+
+  const items = getFilteredGalleryItems()
+    .slice()
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0))
+    .slice(-30);
+
+  clearArchiveViewerPanels();
+
+  for (const item of items) {
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS),
+      material
+    );
+
+    if (typeof item.snapshot === "string" && item.snapshot.startsWith("data:image")) {
+      new THREE.TextureLoader().load(item.snapshot, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        material.map = texture;
+        material.needsUpdate = true;
+      });
+    }
+
+    archivePanels.push({ mesh, material, item });
+    archiveScene.add(mesh);
+  }
+
+  if (archivePanels.length === 0) {
+    setArchiveStatus("Waiting for archive moments from host...", true);
+    return;
+  }
+  focusArchivePanel(archivePanels.length - 1);
+}
+
+function setArchiveAutoplay(active) {
+  if (archiveAutoplayTimer) {
+    window.clearInterval(archiveAutoplayTimer);
+    archiveAutoplayTimer = 0;
+  }
+  if (archiveAutoplayBtn) {
+    archiveAutoplayBtn.textContent = active ? "Stop" : "Autoplay";
+  }
+  if (!active) {
+    return;
+  }
+  archiveAutoplayTimer = window.setInterval(() => {
+    focusArchivePanel(archiveFocusIndex + 1);
+  }, 4200);
 }
 
 function restageLatestArchiveMoment() {
@@ -933,6 +1114,9 @@ function renderGallery() {
     empty.className = "gallery-empty";
     empty.textContent = "No placed moments yet.";
     galleryGrid.appendChild(empty);
+    if (role === "archive") {
+      rebuildArchiveViewer();
+    }
     return;
   }
 
@@ -941,6 +1125,9 @@ function renderGallery() {
     empty.className = "gallery-empty";
     empty.textContent = "No moments for this time range yet.";
     galleryGrid.appendChild(empty);
+    if (role === "archive") {
+      rebuildArchiveViewer();
+    }
     return;
   }
 
@@ -988,6 +1175,10 @@ function renderGallery() {
     card.appendChild(meta);
     card.appendChild(actions);
     galleryGrid.appendChild(card);
+  }
+
+  if (role === "archive") {
+    rebuildArchiveViewer();
   }
 }
 
@@ -1269,10 +1460,6 @@ async function detectArMode() {
     window.isSecureContext &&
     !!navigator.xr?.isSessionSupported &&
     (await navigator.xr.isSessionSupported("immersive-ar").catch(() => false));
-  const supportsVrWebXr =
-    window.isSecureContext &&
-    !!navigator.xr?.isSessionSupported &&
-    (await navigator.xr.isSessionSupported("immersive-vr").catch(() => false));
 
   if (supportsArWebXr) {
     arMode = "webxr";
@@ -1288,16 +1475,6 @@ async function detectArMode() {
     arBtn.disabled = true;
   }
 
-  if (supportsVrWebXr) {
-    vrMode = "webxr";
-    vrBtn.disabled = false;
-    vrBtn.textContent = "Start VR";
-    return;
-  }
-
-  vrMode = "unsupported";
-  vrBtn.disabled = true;
-  vrBtn.textContent = "VR not available";
   if (arMode === "unsupported") {
     setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
   }
@@ -2377,6 +2554,14 @@ function onWindowResize() {
     vrRenderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  if (archiveRenderer && archiveCanvas && archiveCamera) {
+    const width = archiveCanvas.clientWidth || window.innerWidth;
+    const height = archiveCanvas.clientHeight || Math.floor(window.innerHeight * 0.64);
+    archiveRenderer.setSize(width, height, false);
+    archiveCamera.aspect = width / Math.max(1, height);
+    archiveCamera.updateProjectionMatrix();
+  }
+
   if (desktopRenderer && desktopCamera) {
     desktopCamera.aspect = window.innerWidth / window.innerHeight;
     desktopCamera.updateProjectionMatrix();
@@ -2385,7 +2570,7 @@ function onWindowResize() {
 }
 
 function bindEvents() {
-  runBtn.addEventListener("click", () => {
+  runBtn?.addEventListener("click", () => {
     currentSketchId = null;
     applyHydraCode(codeEditor.value);
     if (actingAsHost) {
@@ -2393,7 +2578,7 @@ function bindEvents() {
     }
   });
 
-  resetBtn.addEventListener("click", () => {
+  resetBtn?.addEventListener("click", () => {
     currentSketchId = null;
     codeEditor.value = defaultCode;
     applyHydraCode(codeEditor.value);
@@ -2402,7 +2587,7 @@ function bindEvents() {
     }
   });
 
-  randomBtn.addEventListener("click", applyRandomSnippet);
+  randomBtn?.addEventListener("click", applyRandomSnippet);
   codeEditor.addEventListener("input", () => {
     currentSketchId = null;
     if (role === "controller") {
@@ -2410,24 +2595,27 @@ function bindEvents() {
     }
   });
 
-  arBtn.addEventListener("click", startArExperience);
-  vrBtn.addEventListener("click", startVrExperience);
+  arBtn?.addEventListener("click", startArExperience);
 
-  hostBtn.addEventListener("click", () => {
+  hostBtn?.addEventListener("click", () => {
     role = "controller";
     updateRoleUI();
     hostSession();
   });
 
-  joinBtn.addEventListener("click", () => {
+  joinBtn?.addEventListener("click", () => {
     role = "viewer";
     updateRoleUI();
     joinSession();
   });
 
-  copyLinkBtn.addEventListener("click", shareViewerLink);
-  qrLinkBtn.addEventListener("click", showViewerQr);
-  qrCloseBtn.addEventListener("click", () => qrDialog.close());
+  copyLinkBtn?.addEventListener("click", shareViewerLink);
+  publishArchiveBtn?.addEventListener("click", publishArchiveLink);
+  archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
+  archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));
+  archiveAutoplayBtn?.addEventListener("click", () => {
+    setArchiveAutoplay(!archiveAutoplayTimer);
+  });
 
   const bindOverlayAction = (btn, action) => {
     let lastTs = 0;
@@ -2483,15 +2671,27 @@ function bindEvents() {
     );
   };
 
-  bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
-  bindOverlayAction(overlayVrPrevBtn, () => focusNextVrPanel(-1));
-  bindOverlayAction(overlayVrNextBtn, () => focusNextVrPanel(1));
-  bindOverlayAction(overlayRestageLatestBtn, restageLatestArchiveMoment);
-  bindOverlayAction(overlayUndoBtn, removeLastPanel);
-  bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
-  bindOverlayAction(overlayReplayStartBtn, startArchiveReplay);
-  bindOverlayAction(overlayReplayNextBtn, () => stepArchiveReplay(true));
-  bindOverlayAction(overlayReplayStopBtn, () => stopArchiveReplay(true));
+  if (overlayExitBtn) {
+    bindOverlayAction(overlayExitBtn, () => currentExitAction?.());
+  }
+  if (overlayRestageLatestBtn) {
+    bindOverlayAction(overlayRestageLatestBtn, restageLatestArchiveMoment);
+  }
+  if (overlayUndoBtn) {
+    bindOverlayAction(overlayUndoBtn, removeLastPanel);
+  }
+  if (overlayClearBtn) {
+    bindOverlayAction(overlayClearBtn, clearPlacedPanelsWithConfirm);
+  }
+  if (overlayReplayStartBtn) {
+    bindOverlayAction(overlayReplayStartBtn, startArchiveReplay);
+  }
+  if (overlayReplayNextBtn) {
+    bindOverlayAction(overlayReplayNextBtn, () => stepArchiveReplay(true));
+  }
+  if (overlayReplayStopBtn) {
+    bindOverlayAction(overlayReplayStopBtn, () => stopArchiveReplay(true));
+  }
   windowAllBtn.addEventListener("click", () => {
     archiveWindowFilter = "all";
     renderGallery();
@@ -2514,7 +2714,7 @@ function autoSetupSession() {
   roomId = urlParams.get("room") || randomRoomId();
   roomIdInput.value = roomId;
 
-  if (role === "viewer") {
+  if (role === "viewer" || role === "archive") {
     joinSession();
   } else {
     hostSession();
@@ -2522,7 +2722,7 @@ function autoSetupSession() {
 }
 
 async function start() {
-  if (!navigator.mediaDevices?.getUserMedia) {
+  if (role !== "archive" && !navigator.mediaDevices?.getUserMedia) {
     setStatus("Camera API is not supported in this browser.", true);
     return;
   }
@@ -2532,6 +2732,14 @@ async function start() {
   updateRoleUI();
   bindEvents();
   codeEditor.value = defaultCode;
+
+  if (role === "archive") {
+    autoSetupSession();
+    initArchiveViewerScene();
+    rebuildArchiveViewer();
+    setStatus("Archive viewer ready. Waiting for host sync...");
+    return;
+  }
 
   try {
     await setupCamera();
