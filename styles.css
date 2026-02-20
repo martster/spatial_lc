@@ -338,6 +338,13 @@ body.viewer-role #gallery-panel {
   display: none !important;
 }
 
+body.ar-session .action-dock,
+body.ar-session #sync-panel,
+body.ar-session #gallery-panel,
+body.ar-session #archive-viewer {
+  display: none !important;
+}
+
 body.archive-role .app {
   display: none;
 }

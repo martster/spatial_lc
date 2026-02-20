@@ -429,6 +429,9 @@ function updateRoleUI() {
   if (archiveViewerRoot) {
     archiveViewerRoot.hidden = role !== "archive";
   }
+  if (role !== "archive") {
+    setArchiveAutoplay(false);
+  }
 }
 
 async function applyStartupSnippet() {
@@ -1167,6 +1170,14 @@ function setArchiveAutoplay(active) {
   if (!active) {
     return;
   }
+  if (archivePanels.length < 2) {
+    setArchiveStatus("Autoplay needs at least two moments.", true);
+    if (archiveAutoplayBtn) {
+      archiveAutoplayBtn.textContent = "Autoplay";
+    }
+    return;
+  }
+  setArchiveStatus("Autoplay running.");
   archiveAutoplayTimer = window.setInterval(() => {
     focusArchivePanel(archiveFocusIndex + 1);
   }, 4200);
@@ -1570,6 +1581,11 @@ async function detectArMode() {
 
 async function startArExperience() {
   try {
+    setArchiveAutoplay(false);
+    stopArchiveReplay(false);
+    if (archiveViewerRoot) {
+      archiveViewerRoot.hidden = true;
+    }
     const activeVr = vrRenderer?.xr.getSession();
     if (activeVr) {
       await activeVr.end();
@@ -2482,6 +2498,9 @@ function onArSessionEnded() {
 
   hideArOverlay();
   setAppVisible(true);
+  if (role === "controller") {
+    setPanelVisibility(galleryPanel, toggleGalleryBtn, true);
+  }
   setStatus("WebXR AR session ended.");
 }
 
