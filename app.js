@@ -373,11 +373,11 @@ async function ensureGallerySnippetsLoaded() {
 
 function updateRoleUI() {
   if (role === "controller") {
-    roleChip.textContent = "Role: controller";
+    roleChip.textContent = "Mode: Studio (Laptop steuert Session)";
   } else if (role === "archive") {
-    roleChip.textContent = "Role: archive viewer";
+    roleChip.textContent = "Mode: Archive Viewer";
   } else {
-    roleChip.textContent = "Role: viewer (ar)";
+    roleChip.textContent = "Mode: AR Viewer (Handy)";
   }
 
   if (role === "viewer" || role === "archive") {
@@ -392,6 +392,22 @@ function updateRoleUI() {
   if (archiveViewerRoot) {
     archiveViewerRoot.hidden = role !== "archive";
   }
+}
+
+async function applyStartupSnippet() {
+  await ensureGallerySnippetsLoaded();
+  if (gallerySnippets.length > 0) {
+    const next = gallerySnippets[Math.floor(Math.random() * gallerySnippets.length)];
+    codeEditor.value = next.code;
+    applyHydraCode(next.code);
+    currentSketchId = next.sketch_id || null;
+    return true;
+  }
+
+  codeEditor.value = defaultCode;
+  applyHydraCode(codeEditor.value);
+  currentSketchId = null;
+  return false;
 }
 
 function updateUrlState(nextRole, nextRoom) {
@@ -2731,7 +2747,7 @@ async function start() {
   renderGallery();
   updateRoleUI();
   bindEvents();
-  codeEditor.value = defaultCode;
+  codeEditor.value = "";
 
   if (role === "archive") {
     autoSetupSession();
@@ -2745,20 +2761,32 @@ async function start() {
     await setupCamera();
     initHydra();
     await detectArMode();
-    applyHydraCode(codeEditor.value);
     autoSetupSession();
+    const loadedRandom = await applyStartupSnippet();
 
     if (role === "viewer") {
       if (arMode === "unsupported") {
         setStatus("Viewer ready. Oeffne den Viewer-Link auf einem Smartphone fuer AR.");
       } else {
-        setStatus("Viewer ready. Start AR and place moments.");
+        setStatus(
+          loadedRandom
+            ? "Viewer ready. Random Hydra starter loaded. Start AR and place moments."
+            : "Viewer ready. Start AR and place moments."
+        );
       }
     } else {
       if (arMode === "unsupported") {
-        setStatus("Host ready. Edit code here; AR placement happens on the smartphone viewer.");
+        setStatus(
+          loadedRandom
+            ? "Host ready. Random Hydra starter loaded."
+            : "Host ready. Edit code here; AR placement happens on the smartphone viewer."
+        );
       } else {
-        setStatus("Host ready. Edit code here, place on viewer device.");
+        setStatus(
+          loadedRandom
+            ? "Host ready. Random Hydra starter loaded."
+            : "Host ready. Edit code here, place on viewer device."
+        );
       }
     }
   } catch (error) {

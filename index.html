@@ -17,7 +17,7 @@
       </header>
 
       <section class="sync-panel" aria-label="Live sync session controls">
-        <p id="role-chip" class="chip">Role: solo</p>
+        <p id="role-chip" class="chip">Mode: Initializing</p>
         <p class="sync-help">
           Host edits code on laptop. Viewer opens the shared link on phone and places visuals in AR.
         </p>
@@ -26,7 +26,6 @@
           <button id="host-btn" type="button" hidden>Host Session</button>
           <button id="join-btn" type="button" hidden>Join as Viewer</button>
           <button id="copy-link-btn" type="button">Share Viewer Link</button>
-          <button id="publish-archive-btn" type="button">Publish Archive</button>
         </div>
         <p id="sync-status" aria-live="polite">No remote session.</p>
       </section>
@@ -51,7 +50,10 @@
       <section class="gallery" aria-label="Placed visual gallery">
         <div class="gallery-head">
           <h2>Placed Moments</h2>
-          <button id="clear-gallery-btn" type="button">Clear Gallery</button>
+          <div class="gallery-head-actions">
+            <button id="publish-archive-btn" type="button">Publish Archive</button>
+            <button id="clear-gallery-btn" type="button">Clear Gallery</button>
+          </div>
         </div>
         <p class="gallery-help">
           Every placed AR panel is captured here. Old placements keep their old code look.
