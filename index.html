@@ -91,10 +91,11 @@
       <div class="archive-stage-wrap">
         <canvas id="archive-canvas"></canvas>
       </div>
-      <div class="archive-controls">
-        <button id="archive-prev-btn" type="button">Prev</button>
-        <button id="archive-next-btn" type="button">Next</button>
-        <button id="archive-autoplay-btn" type="button">Autoplay</button>
+      <button id="archive-controls-toggle-btn" type="button" aria-expanded="false">Player Tools</button>
+      <div id="archive-controls-panel" class="archive-controls" hidden>
+        <button id="archive-prev-btn" type="button" disabled>Prev</button>
+        <button id="archive-next-btn" type="button" disabled>Next</button>
+        <button id="archive-autoplay-btn" type="button" disabled>Autoplay</button>
       </div>
       <p id="archive-status" aria-live="polite"></p>
     </section>

@@ -280,6 +280,11 @@ button:disabled {
   gap: 0.65rem;
 }
 
+#archive-controls-toggle-btn {
+  width: fit-content;
+  justify-self: start;
+}
+
 .archive-stage-wrap {
   height: min(70vh, 680px);
   border-radius: 0.2rem;

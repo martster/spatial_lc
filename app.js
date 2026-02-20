@@ -42,6 +42,8 @@ const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
 const archiveViewerRoot = document.getElementById("archive-viewer");
 const archiveCanvas = document.getElementById("archive-canvas");
+const archiveControlsToggleBtn = document.getElementById("archive-controls-toggle-btn");
+const archiveControlsPanel = document.getElementById("archive-controls-panel");
 const archivePrevBtn = document.getElementById("archive-prev-btn");
 const archiveNextBtn = document.getElementById("archive-next-btn");
 const archiveAutoplayBtn = document.getElementById("archive-autoplay-btn");
@@ -439,6 +441,13 @@ function updateRoleUI() {
   }
   if (role !== "archive") {
     setArchiveAutoplay(false);
+    if (archiveControlsPanel) {
+      archiveControlsPanel.hidden = true;
+    }
+    if (archiveControlsToggleBtn) {
+      archiveControlsToggleBtn.setAttribute("aria-expanded", "false");
+      archiveControlsToggleBtn.textContent = "Player Tools";
+    }
   }
 }
 
@@ -1047,6 +1056,33 @@ function setArchiveStatus(message, isError = false) {
   archiveStatusEl.classList.toggle("error", isError);
 }
 
+function setArchiveControlState() {
+  const hasAny = archivePanels.length > 0;
+  const hasMultiple = archivePanels.length > 1;
+  if (archivePrevBtn) {
+    archivePrevBtn.disabled = !hasAny;
+  }
+  if (archiveNextBtn) {
+    archiveNextBtn.disabled = !hasAny;
+  }
+  if (archiveAutoplayBtn) {
+    archiveAutoplayBtn.disabled = !hasMultiple;
+    if (!hasMultiple) {
+      archiveAutoplayBtn.textContent = "Autoplay";
+    }
+  }
+}
+
+function toggleArchiveControls() {
+  if (!archiveControlsPanel || !archiveControlsToggleBtn) {
+    return;
+  }
+  const show = archiveControlsPanel.hidden;
+  archiveControlsPanel.hidden = !show;
+  archiveControlsToggleBtn.setAttribute("aria-expanded", String(show));
+  archiveControlsToggleBtn.textContent = show ? "Hide Tools" : "Player Tools";
+}
+
 function initArchiveViewerScene() {
   if (!archiveCanvas || archiveRenderer) {
     return;
@@ -1102,6 +1138,7 @@ function clearArchiveViewerPanels() {
   }
   archivePanels = [];
   archiveFocusIndex = 0;
+  setArchiveControlState();
 }
 
 function focusArchivePanel(nextIndex = archiveFocusIndex) {
@@ -1165,9 +1202,11 @@ function rebuildArchiveViewer() {
   }
 
   if (archivePanels.length === 0) {
+    setArchiveControlState();
     setArchiveStatus("Waiting for archive moments from host...", true);
     return;
   }
+  setArchiveControlState();
   focusArchivePanel(archivePanels.length - 1);
 }
 
@@ -2744,6 +2783,7 @@ function bindEvents() {
   archiveAutoplayBtn?.addEventListener("click", () => {
     setArchiveAutoplay(!archiveAutoplayTimer);
   });
+  archiveControlsToggleBtn?.addEventListener("click", toggleArchiveControls);
 
   const bindOverlayAction = (btn, action) => {
     let lastTs = 0;
