@@ -1,17 +1,17 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #eef1f4;
-  --panel: #ffffff;
-  --text: #1a2027;
-  --muted: #606a75;
-  --line: #e3e7ec;
-  --ink: #0f1113;
-  --soft: #edf2f7;
-  --accent: #c8e4ff;
-  --accent-2: #b6eadf;
-  --accent-3: #f3dfbe;
-  --danger: #b42318;
+  --bg: #15181d;
+  --panel: #1d2128;
+  --text: #e6eaf0;
+  --muted: #a8b1bd;
+  --line: #2a3039;
+  --ink: #f6f8fb;
+  --soft: #21262e;
+  --accent: #6db8ff;
+  --accent-2: #7fd6be;
+  --accent-3: #d7b67a;
+  --danger: #ff7a73;
 }
 
 * {
@@ -24,8 +24,8 @@ body {
   font-family: "Manrope", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(980px 560px at 112% -12%, #dff1ff 0%, transparent 60%),
-    radial-gradient(760px 520px at -10% 114%, #e6f3ec 0%, transparent 56%),
+    radial-gradient(980px 560px at 112% -12%, rgba(83, 151, 220, 0.22) 0%, transparent 60%),
+    radial-gradient(760px 520px at -10% 114%, rgba(71, 150, 127, 0.2) 0%, transparent 56%),
     var(--bg);
 }
 
@@ -49,16 +49,33 @@ body {
   max-width: 62ch;
 }
 
+.topbar-actions {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.topbar-actions button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.topbar-actions button.active {
+  background: #253241;
+  color: #dcedff;
+}
+
 .sync-panel,
 .controls,
 .gallery,
 .archive-viewer {
-  background: color-mix(in srgb, var(--panel) 92%, #ffffff);
-  border-radius: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.2rem;
   padding: 0.82rem;
-  box-shadow:
-    0 16px 40px rgba(7, 10, 16, 0.08),
-    0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
 }
 
 .sync-panel {
@@ -93,9 +110,9 @@ body {
   display: inline-flex;
   width: fit-content;
   padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 45%, #ffffff);
-  color: #274054;
+  border-radius: 0.16rem;
+  background: rgba(109, 184, 255, 0.14);
+  color: #cbe6ff;
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -118,7 +135,8 @@ body {
 
 .stage-wrapper {
   background: #040506;
-  border-radius: 0.75rem;
+  border-radius: 0.2rem;
+  border: 1px solid var(--line);
   overflow: hidden;
   aspect-ratio: 16 / 9;
   box-shadow: 0 20px 42px rgba(8, 10, 14, 0.22);
@@ -158,26 +176,26 @@ body {
   resize: vertical;
   padding: 0.76rem;
   border: 0;
-  border-radius: 0.62rem;
+  border-radius: 0.16rem;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.9rem;
-  color: #111317;
-  background: #f2f3f5;
+  color: #eff3f8;
+  background: #141920;
 }
 
 button {
   border: 0;
-  border-radius: 0.58rem;
+  border-radius: 0.16rem;
   padding: 0.56rem 0.84rem;
   font-weight: 600;
   font-family: inherit;
   color: var(--ink);
-  background: #e6ebf2;
+  background: #2a313b;
   cursor: pointer;
 }
 
 button:hover {
-  background: #dbe4ef;
+  background: #343d4a;
 }
 
 button:disabled {
@@ -188,10 +206,12 @@ button:disabled {
 #run-btn,
 #ar-btn,
 #copy-link-btn,
+#qr-link-btn,
 #publish-archive-btn,
 #overlay-replay-start-btn,
 #overlay-restage-latest-btn {
   background: var(--accent);
+  color: #10151c;
 }
 
 #clear-gallery-btn,
@@ -231,10 +251,11 @@ button:disabled {
 }
 
 .gallery-card {
-  background: #fff;
-  border-radius: 0.6rem;
+  background: #20262e;
+  border-radius: 0.16rem;
+  border: 1px solid var(--line);
   overflow: hidden;
-  box-shadow: 0 6px 22px rgba(8, 10, 14, 0.08);
+  box-shadow: none;
 }
 
 .gallery-card img {
@@ -270,7 +291,7 @@ button:disabled {
 }
 
 .archive-window-buttons button.active {
-  background: #d3e3f8;
+  background: #3a4a5f;
 }
 
 .archive-viewer {
@@ -282,9 +303,10 @@ button:disabled {
 
 .archive-stage-wrap {
   height: min(70vh, 680px);
-  border-radius: 0.72rem;
+  border-radius: 0.2rem;
   overflow: hidden;
-  background: #eef0f1;
+  background: #14181f;
+  border: 1px solid var(--line);
 }
 
 .ar-overlay {
@@ -309,14 +331,15 @@ button:disabled {
   flex: 1 1 100%;
   margin: 0;
   padding: 0.45rem 0.55rem;
-  background: rgba(18, 20, 25, 0.84);
+  background: rgba(14, 17, 22, 0.88);
   color: #f2f4f8;
-  border-radius: 0.52rem;
+  border-radius: 0.16rem;
   font-size: 0.8rem;
   line-height: 1.32;
 }
 
 body.viewer-role #copy-link-btn,
+body.viewer-role #qr-link-btn,
 body.viewer-role #publish-archive-btn,
 body.viewer-role #run-btn,
 body.viewer-role #hydra-code,
@@ -331,6 +354,44 @@ body.viewer-role .stage-wrapper {
 
 body.archive-role .app {
   display: none;
+}
+
+.qr-dialog {
+  border: 1px solid var(--line);
+  border-radius: 0.2rem;
+  padding: 0;
+  background: #1c2128;
+  color: var(--text);
+}
+
+.qr-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.qr-dialog-inner {
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+  min-width: min(92vw, 340px);
+}
+
+.qr-dialog-inner h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+#qr-code {
+  width: fit-content;
+  margin: 0 auto;
+  background: #fff;
+  padding: 0.45rem;
+}
+
+#qr-url {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  word-break: break-all;
 }
 
 @media (max-width: 760px) {

@@ -14,9 +14,13 @@
           argolis turns your room into a living archive of code moments. Capture, place, and revisit
           visual memories where they happened.
         </p>
+        <div class="topbar-actions">
+          <button id="toggle-sync-btn" type="button" aria-expanded="false">Session</button>
+          <button id="toggle-gallery-btn" type="button" aria-expanded="false">Archive</button>
+        </div>
       </header>
 
-      <section class="sync-panel" aria-label="Live sync session controls">
+      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls" hidden>
         <p id="role-chip" class="chip">Mode: Initializing</p>
         <p class="sync-help">
           Host edits code on laptop. Viewer opens the shared link on phone and places visuals in AR.
@@ -26,6 +30,7 @@
           <button id="host-btn" type="button" hidden>Host Session</button>
           <button id="join-btn" type="button" hidden>Join as Viewer</button>
           <button id="copy-link-btn" type="button">Share Viewer Link</button>
+          <button id="qr-link-btn" type="button">Show QR</button>
         </div>
         <p id="sync-status" aria-live="polite">No remote session.</p>
       </section>
@@ -47,7 +52,7 @@
         <p id="status" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="gallery" aria-label="Placed visual gallery">
+      <section id="gallery-panel" class="gallery" aria-label="Placed visual gallery" hidden>
         <div class="gallery-head">
           <h2>Placed Moments</h2>
           <div class="gallery-head-actions">
@@ -92,7 +97,18 @@
       <p id="archive-status" aria-live="polite"></p>
     </section>
 
+    <dialog id="qr-dialog" class="qr-dialog">
+      <div class="qr-dialog-inner">
+        <h3>Viewer QR</h3>
+        <p>Scan with your phone camera to open the AR viewer.</p>
+        <div id="qr-code"></div>
+        <p id="qr-url"></p>
+        <button id="qr-close-btn" type="button">Close</button>
+      </div>
+    </dialog>
+
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/hydra-synth"></script>
     <script src="app.js" type="module"></script>
   </body>

@@ -9,12 +9,17 @@ const arBtn = document.getElementById("ar-btn");
 const publishArchiveBtn = document.getElementById("publish-archive-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
+const toggleSyncBtn = document.getElementById("toggle-sync-btn");
+const toggleGalleryBtn = document.getElementById("toggle-gallery-btn");
+const syncPanel = document.getElementById("sync-panel");
+const galleryPanel = document.getElementById("gallery-panel");
 
 const roleChip = document.getElementById("role-chip");
 const roomIdInput = document.getElementById("room-id");
 const hostBtn = document.getElementById("host-btn");
 const joinBtn = document.getElementById("join-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
+const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
 
 const overlayRoot = document.getElementById("ar-overlay");
@@ -38,6 +43,10 @@ const archivePrevBtn = document.getElementById("archive-prev-btn");
 const archiveNextBtn = document.getElementById("archive-next-btn");
 const archiveAutoplayBtn = document.getElementById("archive-autoplay-btn");
 const archiveStatusEl = document.getElementById("archive-status");
+const qrDialog = document.getElementById("qr-dialog");
+const qrCodeEl = document.getElementById("qr-code");
+const qrUrlEl = document.getElementById("qr-url");
+const qrCloseBtn = document.getElementById("qr-close-btn");
 
 const QUICK_LOOK_USDZ =
   "https://modelviewer.dev/shared-assets/models/Astronaut.usdz";
@@ -248,6 +257,29 @@ function setSyncStatus(message, isError = false) {
 
 function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
+}
+
+function setPanelVisibility(panelEl, toggleBtn, visible) {
+  if (!panelEl || !toggleBtn) {
+    return;
+  }
+  panelEl.hidden = !visible;
+  toggleBtn.setAttribute("aria-expanded", String(visible));
+  toggleBtn.classList.toggle("active", visible);
+}
+
+function toggleSyncPanel() {
+  if (!syncPanel || !toggleSyncBtn) {
+    return;
+  }
+  setPanelVisibility(syncPanel, toggleSyncBtn, syncPanel.hidden);
+}
+
+function toggleGalleryPanel() {
+  if (!galleryPanel || !toggleGalleryBtn) {
+    return;
+  }
+  setPanelVisibility(galleryPanel, toggleGalleryBtn, galleryPanel.hidden);
 }
 
 function setImmersiveUiMode(mode) {
@@ -921,6 +953,32 @@ async function shareViewerLink() {
   } catch {
     setSyncStatus(`Viewer link: ${url}`);
   }
+}
+
+function showViewerQr() {
+  const { room, url } = buildViewerUrl();
+  if (!room) {
+    setSyncStatus("Start host session first.", true);
+    return;
+  }
+  if (!qrDialog || !qrCodeEl || !qrUrlEl) {
+    setSyncStatus(`Viewer link: ${url}`);
+    return;
+  }
+
+  qrCodeEl.innerHTML = "";
+  if (window.QRCode) {
+    new window.QRCode(qrCodeEl, {
+      text: url,
+      width: 220,
+      height: 220
+    });
+  } else {
+    qrCodeEl.textContent = "QR library unavailable.";
+  }
+
+  qrUrlEl.textContent = url;
+  qrDialog.showModal();
 }
 
 async function publishArchiveLink() {
@@ -2586,6 +2644,9 @@ function onWindowResize() {
 }
 
 function bindEvents() {
+  toggleSyncBtn?.addEventListener("click", toggleSyncPanel);
+  toggleGalleryBtn?.addEventListener("click", toggleGalleryPanel);
+
   runBtn?.addEventListener("click", () => {
     currentSketchId = null;
     applyHydraCode(codeEditor.value);
@@ -2626,7 +2687,9 @@ function bindEvents() {
   });
 
   copyLinkBtn?.addEventListener("click", shareViewerLink);
+  qrLinkBtn?.addEventListener("click", showViewerQr);
   publishArchiveBtn?.addEventListener("click", publishArchiveLink);
+  qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
   archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));
   archiveAutoplayBtn?.addEventListener("click", () => {
@@ -2746,6 +2809,8 @@ async function start() {
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
+  setPanelVisibility(syncPanel, toggleSyncBtn, false);
+  setPanelVisibility(galleryPanel, toggleGalleryBtn, false);
   bindEvents();
   codeEditor.value = "";
 
