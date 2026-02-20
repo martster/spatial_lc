@@ -320,6 +320,7 @@ button:disabled {
 body.viewer-role #copy-link-btn,
 body.viewer-role #qr-link-btn,
 body.viewer-role #publish-archive-btn,
+body.viewer-role #preview-replay-btn,
 body.viewer-role #run-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .hydra-link-row,
@@ -329,6 +330,12 @@ body.viewer-role .controls label {
 
 body.viewer-role .stage-wrapper {
   display: none;
+}
+
+body.viewer-role .action-dock,
+body.viewer-role #sync-panel,
+body.viewer-role #gallery-panel {
+  display: none !important;
 }
 
 body.archive-role .app {

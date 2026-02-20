@@ -36,6 +36,7 @@ let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
+const previewReplayBtn = document.getElementById("preview-replay-btn");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
@@ -603,6 +604,9 @@ function getReplaySequenceItems() {
 function updateReplayUi() {
   overlayReplayStartBtn.disabled = archiveReplayActive;
   overlayReplayStopBtn.disabled = !archiveReplayActive;
+  if (previewReplayBtn) {
+    previewReplayBtn.textContent = archiveReplayActive ? "Stop Preview" : "Preview Replay";
+  }
 }
 
 function cloneSurfacePlacement(surface) {
@@ -723,6 +727,23 @@ function startArchiveReplay() {
   archiveReplayTimer = window.setInterval(() => {
     stepArchiveReplay(true);
   }, intervalMs);
+}
+
+function startScreenReplay() {
+  const sequence = getReplaySequenceItems();
+  if (sequence.length === 0) {
+    setStatus("Replay needs at least one archived moment.", true);
+    return;
+  }
+  stopArchiveReplay(false);
+  archiveReplayActive = true;
+  archiveReplayIndex = 0;
+  updateReplayUi();
+  setStatus("Preview replay started on the stage.");
+  stepArchiveReplay(false);
+  archiveReplayTimer = window.setInterval(() => {
+    stepArchiveReplay(false);
+  }, REPLAY_INTERVAL_MS);
 }
 
 function addGalleryItem(
@@ -2677,6 +2698,13 @@ function bindEvents() {
   copyLinkBtn?.addEventListener("click", shareViewerLink);
   qrLinkBtn?.addEventListener("click", showViewerQr);
   publishArchiveBtn?.addEventListener("click", publishArchiveLink);
+  previewReplayBtn?.addEventListener("click", () => {
+    if (archiveReplayActive) {
+      stopArchiveReplay(true);
+      return;
+    }
+    startScreenReplay();
+  });
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
   archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));
