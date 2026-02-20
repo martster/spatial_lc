@@ -13,6 +13,8 @@ const toggleSyncBtn = document.getElementById("toggle-sync-btn");
 const toggleGalleryBtn = document.getElementById("toggle-gallery-btn");
 const syncPanel = document.getElementById("sync-panel");
 const galleryPanel = document.getElementById("gallery-panel");
+const openShareSessionBtn = document.getElementById("open-share-session-btn");
+const shareSessionDetails = document.getElementById("share-session-details");
 
 const roleChip = document.getElementById("role-chip");
 const roomIdInput = document.getElementById("room-id");
@@ -282,6 +284,16 @@ function toggleGalleryPanel() {
   setPanelVisibility(galleryPanel, toggleGalleryBtn, galleryPanel.hidden);
 }
 
+function toggleShareSessionDetails() {
+  if (!shareSessionDetails || !openShareSessionBtn) {
+    return;
+  }
+  const nextVisible = shareSessionDetails.hidden;
+  shareSessionDetails.hidden = !nextVisible;
+  openShareSessionBtn.textContent = nextVisible ? "Hide Session Details" : "Share AR Session";
+  openShareSessionBtn.setAttribute("aria-expanded", String(nextVisible));
+}
+
 function setImmersiveUiMode(mode) {
   document.body.classList.toggle("ar-session", mode === "ar");
   document.body.classList.toggle("vr-session", mode === "vr");
@@ -316,14 +328,6 @@ function preventXrSelect(event) {
 
 function randomRoomId() {
   return `spatial-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function debounce(fn, waitMs) {
-  let timer = 0;
-  return (...args) => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => fn(...args), waitMs);
-  };
 }
 
 function cloneCanvas(srcCanvas) {
@@ -405,11 +409,11 @@ async function ensureGallerySnippetsLoaded() {
 
 function updateRoleUI() {
   if (role === "controller") {
-    roleChip.textContent = "Mode: Studio (Laptop steuert Session)";
+    roleChip.textContent = "Mode: Studio (Laptop hosts session)";
   } else if (role === "archive") {
     roleChip.textContent = "Mode: Archive Viewer";
   } else {
-    roleChip.textContent = "Mode: AR Viewer (Handy)";
+    roleChip.textContent = "Mode: AR Viewer (Phone)";
   }
 
   if (role === "viewer" || role === "archive") {
@@ -495,17 +499,6 @@ async function applyRandomSnippet() {
     broadcastToViewers({ type: "code", code: next.code });
   }
 }
-
-const pushCodeDebounced = debounce(() => {
-  if (role !== "controller") {
-    return;
-  }
-
-  applyHydraCode(codeEditor.value);
-  if (actingAsHost) {
-    broadcastToViewers({ type: "code", code: codeEditor.value });
-  }
-}, 220);
 
 function normalizeSpatial(value) {
   if (!value || typeof value !== "object") {
@@ -1545,12 +1538,12 @@ async function detectArMode() {
     arBtn.disabled = false;
   } else {
     arMode = "unsupported";
-    arBtn.textContent = "AR am Handy starten";
+    arBtn.textContent = "Start AR on Phone";
     arBtn.disabled = true;
   }
 
   if (arMode === "unsupported") {
-    setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
+    setStatus("AR is not available here. Open the viewer link on a smartphone.");
   }
 }
 
@@ -1571,7 +1564,7 @@ async function startArExperience() {
       return;
     }
 
-    setStatus("AR ist hier nicht verfuegbar. Bitte Viewer-Link auf einem Smartphone oeffnen.");
+    setStatus("AR is not available here. Open the viewer link on a smartphone.");
   } catch (error) {
     setStatus(`AR failed: ${error.message}`, true);
   }
@@ -1919,7 +1912,7 @@ function onArSelect() {
     return;
   }
 
-  setStatus("Noch keine stabile Flaeche erkannt. Bitte langsam scannen und Kontraste/Kanten einbeziehen.");
+  setStatus("No stable surface detected yet. Scan slowly and include edges/texture.");
 }
 
 function pointInPolygon2D(point, polygon) {
@@ -2417,7 +2410,7 @@ function onArFrame(_, frame) {
       const now = Date.now();
       if (selected?.kind === "wall" && selected?.source === "estimated") {
         if (now - lastWallDebugTs > 1200) {
-          setStatus("Schaetze Wandposition. Fuer praezise Platzierung langsam mit Kanten/Strukturen scannen.");
+          setStatus("Estimating wall position. For precise placement, scan slowly with edges/texture.");
           lastWallDebugTs = now;
         }
       } else if (selected?.kind === "wall") {
@@ -2646,6 +2639,7 @@ function onWindowResize() {
 function bindEvents() {
   toggleSyncBtn?.addEventListener("click", toggleSyncPanel);
   toggleGalleryBtn?.addEventListener("click", toggleGalleryPanel);
+  openShareSessionBtn?.addEventListener("click", toggleShareSessionDetails);
 
   runBtn?.addEventListener("click", () => {
     currentSketchId = null;
@@ -2665,12 +2659,6 @@ function bindEvents() {
   });
 
   randomBtn?.addEventListener("click", applyRandomSnippet);
-  codeEditor.addEventListener("input", () => {
-    currentSketchId = null;
-    if (role === "controller") {
-      pushCodeDebounced();
-    }
-  });
 
   arBtn?.addEventListener("click", startArExperience);
 
@@ -2811,6 +2799,13 @@ async function start() {
   updateRoleUI();
   setPanelVisibility(syncPanel, toggleSyncBtn, false);
   setPanelVisibility(galleryPanel, toggleGalleryBtn, false);
+  if (shareSessionDetails) {
+    shareSessionDetails.hidden = true;
+  }
+  if (openShareSessionBtn) {
+    openShareSessionBtn.textContent = "Share AR Session";
+    openShareSessionBtn.setAttribute("aria-expanded", "false");
+  }
   bindEvents();
   codeEditor.value = "";
 
@@ -2831,7 +2826,7 @@ async function start() {
 
     if (role === "viewer") {
       if (arMode === "unsupported") {
-        setStatus("Viewer ready. Oeffne den Viewer-Link auf einem Smartphone fuer AR.");
+        setStatus("Viewer ready. Open the viewer link on a smartphone for AR.");
       } else {
         setStatus(
           loadedRandom

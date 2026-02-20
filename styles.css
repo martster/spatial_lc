@@ -49,30 +49,11 @@ body {
   max-width: 62ch;
 }
 
-.topbar-actions {
-  margin-top: 0.7rem;
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-.topbar-actions button {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--muted);
-}
-
-.topbar-actions button.active {
-  background: #253241;
-  color: #dcedff;
-}
-
 .sync-panel,
 .controls,
 .gallery,
 .archive-viewer {
   background: var(--panel);
-  border: 1px solid var(--line);
   border-radius: 0.2rem;
   padding: 0.82rem;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
@@ -136,10 +117,9 @@ body {
 .stage-wrapper {
   background: #040506;
   border-radius: 0.2rem;
-  border: 1px solid var(--line);
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  box-shadow: 0 20px 42px rgba(8, 10, 14, 0.22);
+  box-shadow: 0 22px 44px rgba(8, 10, 14, 0.28);
 }
 
 #hydra-canvas,
@@ -253,9 +233,8 @@ button:disabled {
 .gallery-card {
   background: #20262e;
   border-radius: 0.16rem;
-  border: 1px solid var(--line);
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
 .gallery-card img {
@@ -306,7 +285,7 @@ button:disabled {
   border-radius: 0.2rem;
   overflow: hidden;
   background: #14181f;
-  border: 1px solid var(--line);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.26);
 }
 
 .ar-overlay {
@@ -356,12 +335,32 @@ body.archive-role .app {
   display: none;
 }
 
+.action-dock {
+  position: sticky;
+  bottom: 0.65rem;
+  z-index: 30;
+  display: flex;
+  gap: 0.45rem;
+  justify-content: center;
+  padding: 0.35rem;
+  background: rgba(21, 24, 29, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.action-dock button {
+  min-width: 120px;
+}
+
+.action-dock button.active {
+  background: #2f4660;
+}
+
 .qr-dialog {
-  border: 1px solid var(--line);
   border-radius: 0.2rem;
   padding: 0;
   background: #1c2128;
   color: var(--text);
+  box-shadow: 0 22px 42px rgba(0, 0, 0, 0.44);
 }
 
 .qr-dialog::backdrop {
@@ -416,5 +415,10 @@ body.archive-role .app {
     bottom: 0.6rem;
     left: 0.5rem;
     justify-content: center;
+  }
+
+  .action-dock {
+    bottom: 0;
+    margin-bottom: 0.2rem;
   }
 }
