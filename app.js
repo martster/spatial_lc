@@ -6,6 +6,7 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
+const arHelpEl = document.getElementById("ar-help");
 const publishArchiveBtn = document.getElementById("publish-archive-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
@@ -262,6 +263,14 @@ function ensureOverlayStatusEl() {
 function setSyncStatus(message, isError = false) {
   syncStatusEl.textContent = message;
   syncStatusEl.classList.toggle("error", isError);
+}
+
+function setArHelp(message, isError = false) {
+  if (!arHelpEl) {
+    return;
+  }
+  arHelpEl.textContent = message;
+  arHelpEl.classList.toggle("error", isError);
 }
 
 function setAppVisible(visible) {
@@ -1307,6 +1316,7 @@ async function renderArchiveFilm() {
 
   archiveFilmRendering = true;
   renderFilmBtn.disabled = true;
+  renderFilmBtn.textContent = "Rendering...";
   setArchiveAutoplay(false);
   stopArchiveReplay(false);
   setFilmStatus("Preparing film export...");
@@ -1468,7 +1478,8 @@ async function renderArchiveFilm() {
     const ext = blobType.includes("mp4") ? "mp4" : "webm";
     const url = URL.createObjectURL(blob);
     updateFilmDownload(url, `argolis-archive-film.${ext}`);
-    setFilmStatus("Film ready.");
+    setFilmStatus("Film ready. Click Download Film.");
+    setStatus("Film render complete. Use Download Film below Render Film.");
 
     await waitMs(180);
     renderer.dispose();
@@ -1479,9 +1490,11 @@ async function renderArchiveFilm() {
     }
   } catch (error) {
     setFilmStatus(`Film export failed: ${error.message}`, true);
+    setStatus("Film render failed. Check the message above.", true);
   } finally {
     archiveFilmRendering = false;
     renderFilmBtn.disabled = false;
+    renderFilmBtn.textContent = "Render Film";
   }
 }
 
@@ -1866,14 +1879,17 @@ async function detectArMode() {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
     arBtn.disabled = false;
+    setArHelp("Place panels in your real room on the phone. Then return here to render a film.");
   } else if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
     arBtn.disabled = false;
+    setArHelp("Opens AR Quick Look on iOS.");
   } else {
     arMode = "unsupported";
     arBtn.textContent = "Start AR on Phone";
     arBtn.disabled = true;
+    setArHelp("AR placement must run on a phone via Viewer Link.", true);
   }
 
   if (arMode === "unsupported") {
@@ -2803,7 +2819,7 @@ function onArSessionEnded() {
   if (role === "controller") {
     setPanelVisibility(galleryPanel, toggleGalleryBtn, true);
   }
-  setStatus("WebXR AR session ended.");
+  setStatus("AR session ended. Next: click Render Film.");
 }
 
 async function toggleArSession() {
