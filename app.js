@@ -445,8 +445,9 @@ function updateRoleUI() {
       archiveControlsPanel.hidden = true;
     }
     if (archiveControlsToggleBtn) {
+      archiveControlsToggleBtn.hidden = true;
       archiveControlsToggleBtn.setAttribute("aria-expanded", "false");
-      archiveControlsToggleBtn.textContent = "Player Tools";
+      archiveControlsToggleBtn.textContent = "Playback";
     }
   }
 }
@@ -1059,6 +1060,12 @@ function setArchiveStatus(message, isError = false) {
 function setArchiveControlState() {
   const hasAny = archivePanels.length > 0;
   const hasMultiple = archivePanels.length > 1;
+  if (archiveControlsToggleBtn) {
+    archiveControlsToggleBtn.hidden = !hasAny;
+  }
+  if (!hasAny && archiveControlsPanel) {
+    archiveControlsPanel.hidden = true;
+  }
   if (archivePrevBtn) {
     archivePrevBtn.disabled = !hasAny;
   }
@@ -1080,7 +1087,7 @@ function toggleArchiveControls() {
   const show = archiveControlsPanel.hidden;
   archiveControlsPanel.hidden = !show;
   archiveControlsToggleBtn.setAttribute("aria-expanded", String(show));
-  archiveControlsToggleBtn.textContent = show ? "Hide Tools" : "Player Tools";
+  archiveControlsToggleBtn.textContent = show ? "Hide Playback" : "Playback";
 }
 
 function initArchiveViewerScene() {
@@ -1219,6 +1226,7 @@ function setArchiveAutoplay(active) {
     archiveAutoplayBtn.textContent = active ? "Stop" : "Autoplay";
   }
   if (!active) {
+    setArchiveStatus("Playback stopped.");
     return;
   }
   if (archivePanels.length < 2) {

@@ -53,7 +53,7 @@
 
       <section id="gallery-panel" class="gallery" aria-label="Placed visual gallery" hidden>
         <div class="gallery-head">
-          <h2>Placed Moments</h2>
+          <h2>Placed Panels</h2>
           <div class="gallery-head-actions">
             <button id="preview-replay-btn" type="button">Preview Replay</button>
             <button id="publish-archive-btn" type="button">Publish Archive</button>
@@ -61,7 +61,7 @@
           </div>
         </div>
         <p class="gallery-help">
-          Every placed AR panel is captured here. Old placements keep their old code look.
+          Each placement is a saved state (panel position + code at that time), not a video.
         </p>
         <div class="archive-filters">
           <div class="archive-window-buttons" role="group" aria-label="Filter archive by time">
@@ -75,7 +75,7 @@
 
       <section class="action-dock" aria-label="Primary navigation">
         <button id="toggle-sync-btn" type="button" aria-expanded="false">Share Link</button>
-        <button id="toggle-gallery-btn" type="button" aria-expanded="false">Moments</button>
+        <button id="toggle-gallery-btn" type="button" aria-expanded="false">Panels</button>
       </section>
     </main>
 
@@ -91,7 +91,7 @@
       <div class="archive-stage-wrap">
         <canvas id="archive-canvas"></canvas>
       </div>
-      <button id="archive-controls-toggle-btn" type="button" aria-expanded="false">Player Tools</button>
+      <button id="archive-controls-toggle-btn" type="button" aria-expanded="false" hidden>Playback</button>
       <div id="archive-controls-panel" class="archive-controls" hidden>
         <button id="archive-prev-btn" type="button" disabled>Prev</button>
         <button id="archive-next-btn" type="button" disabled>Next</button>
