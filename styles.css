@@ -51,8 +51,7 @@ body {
 
 .sync-panel,
 .controls,
-.gallery,
-.archive-viewer {
+.gallery {
   background: var(--panel);
   border-radius: 0.2rem;
   padding: 0.82rem;
@@ -281,18 +280,6 @@ button:disabled {
   background: #3a4a5f;
 }
 
-.archive-viewer {
-  width: min(1060px, 94vw);
-  margin: 1.1rem auto 2rem;
-  display: grid;
-  gap: 0.65rem;
-}
-
-#archive-controls-toggle-btn {
-  width: fit-content;
-  justify-self: start;
-}
-
 .archive-stage-wrap {
   height: min(70vh, 680px);
   border-radius: 0.2rem;
@@ -333,8 +320,8 @@ button:disabled {
 body.viewer-role #copy-link-btn,
 body.viewer-role #qr-link-btn,
 body.viewer-role #publish-archive-btn,
-body.viewer-role #preview-replay-btn,
 body.viewer-role #run-btn,
+body.viewer-role #render-film-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .hydra-link-row,
 body.viewer-role .controls label {
@@ -353,13 +340,8 @@ body.viewer-role #gallery-panel {
 
 body.ar-session .action-dock,
 body.ar-session #sync-panel,
-body.ar-session #gallery-panel,
-body.ar-session #archive-viewer {
+body.ar-session #gallery-panel {
   display: none !important;
-}
-
-body.archive-role .app {
-  display: none;
 }
 
 .action-dock {
@@ -421,8 +403,7 @@ body.archive-role .app {
 }
 
 @media (max-width: 760px) {
-  .app,
-  .archive-viewer {
+  .app {
     width: 100vw;
     margin: 0;
     padding: 0.62rem;

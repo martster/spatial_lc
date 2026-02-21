@@ -36,7 +36,6 @@ let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
-const previewReplayBtn = document.getElementById("preview-replay-btn");
 const renderFilmBtn = document.getElementById("render-film-btn");
 const filmStatusEl = document.getElementById("film-status");
 const filmDownloadLink = document.getElementById("film-download-link");
@@ -634,9 +633,6 @@ function updateReplayUi() {
   if (overlayReplayStopBtn) {
     overlayReplayStopBtn.disabled = !archiveReplayActive;
   }
-  if (previewReplayBtn) {
-    previewReplayBtn.textContent = archiveReplayActive ? "Stop Preview" : "Preview Replay";
-  }
 }
 
 function cloneSurfacePlacement(surface) {
@@ -757,23 +753,6 @@ function startArchiveReplay() {
   archiveReplayTimer = window.setInterval(() => {
     stepArchiveReplay(true);
   }, intervalMs);
-}
-
-function startScreenReplay() {
-  const sequence = getReplaySequenceItems();
-  if (sequence.length === 0) {
-    setStatus("Replay needs at least one archived moment.", true);
-    return;
-  }
-  stopArchiveReplay(false);
-  archiveReplayActive = true;
-  archiveReplayIndex = 0;
-  updateReplayUi();
-  setStatus("Preview replay started on the stage.");
-  stepArchiveReplay(false);
-  archiveReplayTimer = window.setInterval(() => {
-    stepArchiveReplay(false);
-  }, REPLAY_INTERVAL_MS);
 }
 
 function addGalleryItem(
@@ -969,7 +948,7 @@ function buildArchiveUrl() {
     new URLSearchParams(window.location.search).get("room") ||
     "";
   const url = new URL(window.location.href);
-  url.searchParams.set("role", "archive");
+  url.searchParams.set("role", "viewer");
   url.searchParams.set("room", room);
   return { room, url: url.toString() };
 }
@@ -1306,11 +1285,22 @@ function waitMs(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function loadTextureFromUrl(loader, url) {
+  return new Promise((resolve) => {
+    loader.load(
+      url,
+      (texture) => resolve(texture),
+      undefined,
+      () => resolve(null)
+    );
+  });
+}
+
 async function renderArchiveFilm() {
   if (archiveFilmRendering) {
     return;
   }
-  if (!window.MediaRecorder || !archiveCanvas?.captureStream) {
+  if (!window.MediaRecorder) {
     setFilmStatus("Film export is not supported in this browser.", true);
     return;
   }
@@ -1323,23 +1313,98 @@ async function renderArchiveFilm() {
   updateFilmDownload(null);
 
   try {
-    initArchiveViewerScene();
-    rebuildArchiveViewer(true);
-
-    if (!archivePanels.length) {
+    const sequence = getFilteredGalleryItems()
+      .slice()
+      .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+    if (sequence.length === 0) {
       setFilmStatus("Place at least one panel before rendering a film.", true);
       return;
     }
 
     const width = 1280;
     const height = 720;
-    archiveRenderer.setSize(width, height, false);
-    archiveCamera.aspect = width / height;
-    archiveCamera.updateProjectionMatrix();
-    focusArchivePanel(0);
-    renderArchiveFrame();
+    const filmCanvas = document.createElement("canvas");
+    filmCanvas.width = width;
+    filmCanvas.height = height;
 
-    const stream = archiveCanvas.captureStream(30);
+    const renderer = new THREE.WebGLRenderer({
+      canvas: filmCanvas,
+      antialias: true,
+      alpha: false
+    });
+    renderer.setPixelRatio(1);
+    renderer.setSize(width, height, false);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x10151d);
+    const camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 80);
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x2b3340, 0.9);
+    const key = new THREE.DirectionalLight(0xffffff, 0.7);
+    key.position.set(3.2, 5.2, 2.4);
+    scene.add(hemi, key);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(18, 18),
+      new THREE.MeshStandardMaterial({ color: 0x131a24, roughness: 0.95, metalness: 0.03 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    scene.add(floor);
+
+    const panels = [];
+    const texLoader = new THREE.TextureLoader();
+    const fallbackCols = 5;
+    for (let i = 0; i < sequence.length; i += 1) {
+      const item = sequence[i];
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS),
+        material
+      );
+      const placement = deserializePlacement(item.spatial);
+      if (placement?.position && placement?.quaternion) {
+        mesh.position.copy(placement.position);
+        mesh.quaternion.copy(placement.quaternion);
+      } else {
+        const row = Math.floor(i / fallbackCols);
+        const col = i % fallbackCols;
+        mesh.position.set((col - 2) * 1.12, 1.45, -2.1 - row * 0.68);
+      }
+
+      if (typeof item.snapshot === "string" && item.snapshot.startsWith("data:image")) {
+        const texture = await loadTextureFromUrl(texLoader, item.snapshot);
+        if (texture) {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          material.map = texture;
+          material.needsUpdate = true;
+        }
+      }
+
+      mesh.visible = false;
+      panels.push({ mesh, material });
+      scene.add(mesh);
+    }
+
+    const bounds = new THREE.Box3();
+    for (const panel of panels) {
+      bounds.expandByObject(panel.mesh);
+    }
+    const center = new THREE.Vector3();
+    bounds.getCenter(center);
+    if (!Number.isFinite(center.x)) {
+      center.set(0, 1.45, -2.4);
+    }
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+    const radius = THREE.MathUtils.clamp(size.length() * 0.48, 1.8, 5.6);
+
+    const stream = filmCanvas.captureStream(30);
     const mimeType = pickRecordingMimeType();
     const recorder = mimeType
       ? new MediaRecorder(stream, { mimeType })
@@ -1352,35 +1417,46 @@ async function renderArchiveFilm() {
       }
     });
 
-    const stepMs = 1800;
-    const totalSteps = Math.max(1, archivePanels.length);
-    let step = 0;
-    let stepTimer = 0;
-
     const stopPromise = new Promise((resolve) => {
       recorder.addEventListener("stop", () => resolve());
     });
 
     recorder.start();
-    setFilmStatus(`Recording film (${totalSteps} panels)...`);
+    setFilmStatus(`Recording film in spatial layout (${panels.length} panels)...`);
 
-    stepTimer = window.setInterval(() => {
-      step += 1;
-      if (step >= totalSteps) {
-        window.clearInterval(stepTimer);
-        stepTimer = 0;
+    const durationMs = Math.max(6200, panels.length * 1100);
+    const startTs = performance.now();
+    const renderLoopPromise = new Promise((resolve) => {
+      const renderFrame = (now) => {
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const revealCount = Math.max(1, Math.ceil(t * panels.length));
+        for (let i = 0; i < panels.length; i += 1) {
+          panels[i].mesh.visible = i < revealCount;
+        }
+
+        const angle = t * Math.PI * 1.35 + Math.PI * 0.22;
+        camera.position.set(
+          center.x + Math.sin(angle) * radius,
+          center.y + 0.7 + Math.sin(t * Math.PI) * 0.16,
+          center.z + Math.cos(angle) * radius
+        );
+        camera.lookAt(center.x, center.y + 0.15, center.z);
+        renderer.render(scene, camera);
+        setFilmStatus(`Recording film (${Math.round(t * 100)}%)...`);
+
+        if (t < 1) {
+          window.requestAnimationFrame(renderFrame);
+          return;
+        }
         recorder.stop();
-        return;
-      }
-      focusArchivePanel(step);
-      renderArchiveFrame();
-      setFilmStatus(`Recording film (${step + 1}/${totalSteps})...`);
-    }, stepMs);
+        resolve();
+      };
+      window.requestAnimationFrame(renderFrame);
+    });
+
+    await renderLoopPromise;
 
     await stopPromise;
-    if (stepTimer) {
-      window.clearInterval(stepTimer);
-    }
 
     const blobType = mimeType || "video/webm";
     const blob = new Blob(chunks, { type: blobType });
@@ -1395,7 +1471,12 @@ async function renderArchiveFilm() {
     setFilmStatus("Film ready.");
 
     await waitMs(180);
-    renderArchiveFrame();
+    renderer.dispose();
+    for (const panel of panels) {
+      panel.material.map?.dispose?.();
+      panel.material.dispose();
+      panel.mesh.geometry.dispose();
+    }
   } catch (error) {
     setFilmStatus(`Film export failed: ${error.message}`, true);
   } finally {
@@ -2940,13 +3021,6 @@ function bindEvents() {
   copyLinkBtn?.addEventListener("click", shareViewerLink);
   qrLinkBtn?.addEventListener("click", showViewerQr);
   publishArchiveBtn?.addEventListener("click", publishArchiveLink);
-  previewReplayBtn?.addEventListener("click", () => {
-    if (archiveReplayActive) {
-      stopArchiveReplay(true);
-      return;
-    }
-    startScreenReplay();
-  });
   renderFilmBtn?.addEventListener("click", renderArchiveFilm);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
@@ -3066,6 +3140,10 @@ async function start() {
     return;
   }
 
+  if (role === "archive") {
+    role = "viewer";
+  }
+
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
@@ -3080,14 +3158,6 @@ async function start() {
   }
   bindEvents();
   codeEditor.value = "";
-
-  if (role === "archive") {
-    autoSetupSession();
-    initArchiveViewerScene();
-    rebuildArchiveViewer();
-    setStatus("Archive viewer ready. Waiting for host sync...");
-    return;
-  }
 
   try {
     await setupCamera();
