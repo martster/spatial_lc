@@ -100,7 +100,8 @@ body {
 
 #sync-status,
 #status,
-#archive-status {
+#archive-status,
+#film-status {
   margin: 0;
   min-height: 1.25rem;
   color: var(--muted);
@@ -110,6 +111,7 @@ body {
 #sync-status.error,
 #status.error,
 #archive-status.error,
+#film-status.error,
 .ar-overlay-status.error {
   color: var(--danger);
 }
@@ -267,6 +269,12 @@ button:disabled {
 
 .archive-filters {
   margin-top: 0.6rem;
+}
+
+#film-download-link {
+  color: var(--accent);
+  text-decoration: none;
+  width: fit-content;
 }
 
 .archive-window-buttons button.active {

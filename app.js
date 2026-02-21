@@ -37,6 +37,9 @@ let overlayStatusEl = document.getElementById("overlay-status");
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
 const previewReplayBtn = document.getElementById("preview-replay-btn");
+const renderFilmBtn = document.getElementById("render-film-btn");
+const filmStatusEl = document.getElementById("film-status");
+const filmDownloadLink = document.getElementById("film-download-link");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
@@ -99,6 +102,8 @@ let archivePanels = [];
 let archiveFocusIndex = 0;
 let archiveAutoplayTimer = 0;
 let archiveRaf = 0;
+let archiveFilmRendering = false;
+let archiveFilmUrl = "";
 
 let peer;
 let roomId = "";
@@ -1057,6 +1062,40 @@ function setArchiveStatus(message, isError = false) {
   archiveStatusEl.classList.toggle("error", isError);
 }
 
+function setFilmStatus(message, isError = false) {
+  if (!filmStatusEl) {
+    return;
+  }
+  filmStatusEl.textContent = message;
+  filmStatusEl.classList.toggle("error", isError);
+}
+
+function updateFilmDownload(url, filename = "argolis-archive-film.webm") {
+  if (!filmDownloadLink) {
+    return;
+  }
+  if (archiveFilmUrl) {
+    URL.revokeObjectURL(archiveFilmUrl);
+    archiveFilmUrl = "";
+  }
+  if (!url) {
+    filmDownloadLink.hidden = true;
+    filmDownloadLink.removeAttribute("href");
+    return;
+  }
+  archiveFilmUrl = url;
+  filmDownloadLink.href = url;
+  filmDownloadLink.download = filename;
+  filmDownloadLink.hidden = false;
+}
+
+function renderArchiveFrame() {
+  if (!archiveRenderer || !archiveScene || !archiveCamera) {
+    return;
+  }
+  archiveRenderer.render(archiveScene, archiveCamera);
+}
+
 function setArchiveControlState() {
   const hasAny = archivePanels.length > 0;
   const hasMultiple = archivePanels.length > 1;
@@ -1168,8 +1207,8 @@ function focusArchivePanel(nextIndex = archiveFocusIndex) {
   );
 }
 
-function rebuildArchiveViewer() {
-  if (role !== "archive") {
+function rebuildArchiveViewer(force = false) {
+  if (!force && role !== "archive") {
     return;
   }
   initArchiveViewerScene();
@@ -1211,10 +1250,16 @@ function rebuildArchiveViewer() {
   if (archivePanels.length === 0) {
     setArchiveControlState();
     setArchiveStatus("Waiting for archive moments from host...", true);
+    if (!archiveFilmRendering) {
+      setFilmStatus("No panels available for film export.", true);
+    }
     return;
   }
   setArchiveControlState();
   focusArchivePanel(archivePanels.length - 1);
+  if (!archiveFilmRendering) {
+    setFilmStatus("");
+  }
 }
 
 function setArchiveAutoplay(active) {
@@ -1240,6 +1285,123 @@ function setArchiveAutoplay(active) {
   archiveAutoplayTimer = window.setInterval(() => {
     focusArchivePanel(archiveFocusIndex + 1);
   }, 4200);
+}
+
+function pickRecordingMimeType() {
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4"
+  ];
+  for (const type of candidates) {
+    if (MediaRecorder.isTypeSupported?.(type)) {
+      return type;
+    }
+  }
+  return "";
+}
+
+function waitMs(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function renderArchiveFilm() {
+  if (archiveFilmRendering) {
+    return;
+  }
+  if (!window.MediaRecorder || !archiveCanvas?.captureStream) {
+    setFilmStatus("Film export is not supported in this browser.", true);
+    return;
+  }
+
+  archiveFilmRendering = true;
+  renderFilmBtn.disabled = true;
+  setArchiveAutoplay(false);
+  stopArchiveReplay(false);
+  setFilmStatus("Preparing film export...");
+  updateFilmDownload(null);
+
+  try {
+    initArchiveViewerScene();
+    rebuildArchiveViewer(true);
+
+    if (!archivePanels.length) {
+      setFilmStatus("Place at least one panel before rendering a film.", true);
+      return;
+    }
+
+    const width = 1280;
+    const height = 720;
+    archiveRenderer.setSize(width, height, false);
+    archiveCamera.aspect = width / height;
+    archiveCamera.updateProjectionMatrix();
+    focusArchivePanel(0);
+    renderArchiveFrame();
+
+    const stream = archiveCanvas.captureStream(30);
+    const mimeType = pickRecordingMimeType();
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+    const chunks = [];
+
+    recorder.addEventListener("dataavailable", (event) => {
+      if (event.data && event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    });
+
+    const stepMs = 1800;
+    const totalSteps = Math.max(1, archivePanels.length);
+    let step = 0;
+    let stepTimer = 0;
+
+    const stopPromise = new Promise((resolve) => {
+      recorder.addEventListener("stop", () => resolve());
+    });
+
+    recorder.start();
+    setFilmStatus(`Recording film (${totalSteps} panels)...`);
+
+    stepTimer = window.setInterval(() => {
+      step += 1;
+      if (step >= totalSteps) {
+        window.clearInterval(stepTimer);
+        stepTimer = 0;
+        recorder.stop();
+        return;
+      }
+      focusArchivePanel(step);
+      renderArchiveFrame();
+      setFilmStatus(`Recording film (${step + 1}/${totalSteps})...`);
+    }, stepMs);
+
+    await stopPromise;
+    if (stepTimer) {
+      window.clearInterval(stepTimer);
+    }
+
+    const blobType = mimeType || "video/webm";
+    const blob = new Blob(chunks, { type: blobType });
+    if (!blob.size) {
+      setFilmStatus("Film export failed: empty recording.", true);
+      return;
+    }
+
+    const ext = blobType.includes("mp4") ? "mp4" : "webm";
+    const url = URL.createObjectURL(blob);
+    updateFilmDownload(url, `argolis-archive-film.${ext}`);
+    setFilmStatus("Film ready.");
+
+    await waitMs(180);
+    renderArchiveFrame();
+  } catch (error) {
+    setFilmStatus(`Film export failed: ${error.message}`, true);
+  } finally {
+    archiveFilmRendering = false;
+    renderFilmBtn.disabled = false;
+  }
 }
 
 function restageLatestArchiveMoment() {
@@ -2785,6 +2947,7 @@ function bindEvents() {
     }
     startScreenReplay();
   });
+  renderFilmBtn?.addEventListener("click", renderArchiveFilm);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
   archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));

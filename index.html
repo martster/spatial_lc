@@ -56,6 +56,7 @@
           <h2>Placed Panels</h2>
           <div class="gallery-head-actions">
             <button id="preview-replay-btn" type="button">Preview Replay</button>
+            <button id="render-film-btn" type="button">Render Film</button>
             <button id="publish-archive-btn" type="button">Publish Archive</button>
             <button id="clear-gallery-btn" type="button">Clear Gallery</button>
           </div>
@@ -63,6 +64,8 @@
         <p class="gallery-help">
           Each placement is a saved state (panel position + code at that time), not a video.
         </p>
+        <p id="film-status" aria-live="polite"></p>
+        <a id="film-download-link" href="#" download="argolis-archive-film.webm" hidden>Download Film</a>
         <div class="archive-filters">
           <div class="archive-window-buttons" role="group" aria-label="Filter archive by time">
             <button id="archive-window-all" type="button">All Time</button>
