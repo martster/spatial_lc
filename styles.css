@@ -73,7 +73,6 @@ body {
 
 .sync-row,
 .buttons,
-.archive-controls,
 .archive-window-buttons,
 .gallery-actions {
   display: flex;
@@ -99,29 +98,16 @@ body {
 
 #sync-status,
 #status,
-#archive-status,
-#film-status {
+#archive-status {
   margin: 0;
   min-height: 1.25rem;
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-#ar-help {
-  margin: 0;
-  min-height: 1.1rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-#ar-help.error {
-  color: var(--danger);
-}
-
 #sync-status.error,
 #status.error,
 #archive-status.error,
-#film-status.error,
 .ar-overlay-status.error {
   color: var(--danger);
 }
@@ -281,12 +267,6 @@ button:disabled {
   margin-top: 0.6rem;
 }
 
-#film-download-link {
-  color: var(--accent);
-  text-decoration: none;
-  width: fit-content;
-}
-
 .archive-window-buttons button.active {
   background: #3a4a5f;
 }
@@ -332,7 +312,6 @@ body.viewer-role #copy-link-btn,
 body.viewer-role #qr-link-btn,
 body.viewer-role #publish-archive-btn,
 body.viewer-role #run-btn,
-body.viewer-role #render-film-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .hydra-link-row,
 body.viewer-role .controls label {

@@ -6,12 +6,10 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
-const arHelpEl = document.getElementById("ar-help");
 const publishArchiveBtn = document.getElementById("publish-archive-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
 const toggleSyncBtn = document.getElementById("toggle-sync-btn");
-const toggleGalleryBtn = document.getElementById("toggle-gallery-btn");
 const syncPanel = document.getElementById("sync-panel");
 const galleryPanel = document.getElementById("gallery-panel");
 const openShareSessionBtn = document.getElementById("open-share-session-btn");
@@ -37,9 +35,6 @@ let overlayStatusEl = document.getElementById("overlay-status");
 
 const galleryGrid = document.getElementById("gallery-grid");
 const clearGalleryBtn = document.getElementById("clear-gallery-btn");
-const renderFilmBtn = document.getElementById("render-film-btn");
-const filmStatusEl = document.getElementById("film-status");
-const filmDownloadLink = document.getElementById("film-download-link");
 const windowAllBtn = document.getElementById("archive-window-all");
 const windowWeekBtn = document.getElementById("archive-window-week");
 const windowTodayBtn = document.getElementById("archive-window-today");
@@ -102,8 +97,6 @@ let archivePanels = [];
 let archiveFocusIndex = 0;
 let archiveAutoplayTimer = 0;
 let archiveRaf = 0;
-let archiveFilmRendering = false;
-let archiveFilmUrl = "";
 
 let peer;
 let roomId = "";
@@ -265,14 +258,6 @@ function setSyncStatus(message, isError = false) {
   syncStatusEl.classList.toggle("error", isError);
 }
 
-function setArHelp(message, isError = false) {
-  if (!arHelpEl) {
-    return;
-  }
-  arHelpEl.textContent = message;
-  arHelpEl.classList.toggle("error", isError);
-}
-
 function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
 }
@@ -299,13 +284,6 @@ async function triggerShareFromDock() {
     toggleShareSessionDetails();
   }
   await shareViewerLink();
-}
-
-function toggleGalleryPanel() {
-  if (!galleryPanel || !toggleGalleryBtn) {
-    return;
-  }
-  setPanelVisibility(galleryPanel, toggleGalleryBtn, galleryPanel.hidden);
 }
 
 function toggleShareSessionDetails() {
@@ -1050,33 +1028,6 @@ function setArchiveStatus(message, isError = false) {
   archiveStatusEl.classList.toggle("error", isError);
 }
 
-function setFilmStatus(message, isError = false) {
-  if (!filmStatusEl) {
-    return;
-  }
-  filmStatusEl.textContent = message;
-  filmStatusEl.classList.toggle("error", isError);
-}
-
-function updateFilmDownload(url, filename = "argolis-archive-film.webm") {
-  if (!filmDownloadLink) {
-    return;
-  }
-  if (archiveFilmUrl) {
-    URL.revokeObjectURL(archiveFilmUrl);
-    archiveFilmUrl = "";
-  }
-  if (!url) {
-    filmDownloadLink.hidden = true;
-    filmDownloadLink.removeAttribute("href");
-    return;
-  }
-  archiveFilmUrl = url;
-  filmDownloadLink.href = url;
-  filmDownloadLink.download = filename;
-  filmDownloadLink.hidden = false;
-}
-
 function renderArchiveFrame() {
   if (!archiveRenderer || !archiveScene || !archiveCamera) {
     return;
@@ -1238,16 +1189,10 @@ function rebuildArchiveViewer(force = false) {
   if (archivePanels.length === 0) {
     setArchiveControlState();
     setArchiveStatus("Waiting for archive moments from host...", true);
-    if (!archiveFilmRendering) {
-      setFilmStatus("No panels available for film export.", true);
-    }
     return;
   }
   setArchiveControlState();
   focusArchivePanel(archivePanels.length - 1);
-  if (!archiveFilmRendering) {
-    setFilmStatus("");
-  }
 }
 
 function setArchiveAutoplay(active) {
@@ -1273,229 +1218,6 @@ function setArchiveAutoplay(active) {
   archiveAutoplayTimer = window.setInterval(() => {
     focusArchivePanel(archiveFocusIndex + 1);
   }, 4200);
-}
-
-function pickRecordingMimeType() {
-  const candidates = [
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-    "video/mp4"
-  ];
-  for (const type of candidates) {
-    if (MediaRecorder.isTypeSupported?.(type)) {
-      return type;
-    }
-  }
-  return "";
-}
-
-function waitMs(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function loadTextureFromUrl(loader, url) {
-  return new Promise((resolve) => {
-    loader.load(
-      url,
-      (texture) => resolve(texture),
-      undefined,
-      () => resolve(null)
-    );
-  });
-}
-
-async function renderArchiveFilm() {
-  if (archiveFilmRendering) {
-    return;
-  }
-  if (!window.MediaRecorder) {
-    setFilmStatus("Film export is not supported in this browser.", true);
-    return;
-  }
-
-  archiveFilmRendering = true;
-  renderFilmBtn.disabled = true;
-  renderFilmBtn.textContent = "Rendering...";
-  setArchiveAutoplay(false);
-  stopArchiveReplay(false);
-  setFilmStatus("Preparing film export...");
-  updateFilmDownload(null);
-
-  try {
-    const sequence = getFilteredGalleryItems()
-      .slice()
-      .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
-    if (sequence.length === 0) {
-      setFilmStatus("Place at least one panel before rendering a film.", true);
-      return;
-    }
-
-    const width = 1280;
-    const height = 720;
-    const filmCanvas = document.createElement("canvas");
-    filmCanvas.width = width;
-    filmCanvas.height = height;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas: filmCanvas,
-      antialias: true,
-      alpha: false
-    });
-    renderer.setPixelRatio(1);
-    renderer.setSize(width, height, false);
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x10151d);
-    const camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 80);
-
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x2b3340, 0.9);
-    const key = new THREE.DirectionalLight(0xffffff, 0.7);
-    key.position.set(3.2, 5.2, 2.4);
-    scene.add(hemi, key);
-
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(18, 18),
-      new THREE.MeshStandardMaterial({ color: 0x131a24, roughness: 0.95, metalness: 0.03 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = 0;
-    scene.add(floor);
-
-    const panels = [];
-    const texLoader = new THREE.TextureLoader();
-    const fallbackCols = 5;
-    for (let i = 0; i < sequence.length; i += 1) {
-      const item = sequence[i];
-      const material = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        side: THREE.DoubleSide
-      });
-      const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS),
-        material
-      );
-      const placement = deserializePlacement(item.spatial);
-      if (placement?.position && placement?.quaternion) {
-        mesh.position.copy(placement.position);
-        mesh.quaternion.copy(placement.quaternion);
-      } else {
-        const row = Math.floor(i / fallbackCols);
-        const col = i % fallbackCols;
-        mesh.position.set((col - 2) * 1.12, 1.45, -2.1 - row * 0.68);
-      }
-
-      if (typeof item.snapshot === "string" && item.snapshot.startsWith("data:image")) {
-        const texture = await loadTextureFromUrl(texLoader, item.snapshot);
-        if (texture) {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          material.map = texture;
-          material.needsUpdate = true;
-        }
-      }
-
-      mesh.visible = false;
-      panels.push({ mesh, material });
-      scene.add(mesh);
-    }
-
-    const bounds = new THREE.Box3();
-    for (const panel of panels) {
-      bounds.expandByObject(panel.mesh);
-    }
-    const center = new THREE.Vector3();
-    bounds.getCenter(center);
-    if (!Number.isFinite(center.x)) {
-      center.set(0, 1.45, -2.4);
-    }
-    const size = new THREE.Vector3();
-    bounds.getSize(size);
-    const radius = THREE.MathUtils.clamp(size.length() * 0.48, 1.8, 5.6);
-
-    const stream = filmCanvas.captureStream(30);
-    const mimeType = pickRecordingMimeType();
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
-    const chunks = [];
-
-    recorder.addEventListener("dataavailable", (event) => {
-      if (event.data && event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    });
-
-    const stopPromise = new Promise((resolve) => {
-      recorder.addEventListener("stop", () => resolve());
-    });
-
-    recorder.start();
-    setFilmStatus(`Recording film in spatial layout (${panels.length} panels)...`);
-
-    const durationMs = Math.max(6200, panels.length * 1100);
-    const startTs = performance.now();
-    const renderLoopPromise = new Promise((resolve) => {
-      const renderFrame = (now) => {
-        const t = Math.min(1, (now - startTs) / durationMs);
-        const revealCount = Math.max(1, Math.ceil(t * panels.length));
-        for (let i = 0; i < panels.length; i += 1) {
-          panels[i].mesh.visible = i < revealCount;
-        }
-
-        const angle = t * Math.PI * 1.35 + Math.PI * 0.22;
-        camera.position.set(
-          center.x + Math.sin(angle) * radius,
-          center.y + 0.7 + Math.sin(t * Math.PI) * 0.16,
-          center.z + Math.cos(angle) * radius
-        );
-        camera.lookAt(center.x, center.y + 0.15, center.z);
-        renderer.render(scene, camera);
-        setFilmStatus(`Recording film (${Math.round(t * 100)}%)...`);
-
-        if (t < 1) {
-          window.requestAnimationFrame(renderFrame);
-          return;
-        }
-        recorder.stop();
-        resolve();
-      };
-      window.requestAnimationFrame(renderFrame);
-    });
-
-    await renderLoopPromise;
-
-    await stopPromise;
-
-    const blobType = mimeType || "video/webm";
-    const blob = new Blob(chunks, { type: blobType });
-    if (!blob.size) {
-      setFilmStatus("Film export failed: empty recording.", true);
-      return;
-    }
-
-    const ext = blobType.includes("mp4") ? "mp4" : "webm";
-    const url = URL.createObjectURL(blob);
-    updateFilmDownload(url, `argolis-archive-film.${ext}`);
-    setFilmStatus("Film ready. Click Download Film.");
-    setStatus("Film render complete. Use Download Film below Render Film.");
-
-    await waitMs(180);
-    renderer.dispose();
-    for (const panel of panels) {
-      panel.material.map?.dispose?.();
-      panel.material.dispose();
-      panel.mesh.geometry.dispose();
-    }
-  } catch (error) {
-    setFilmStatus(`Film export failed: ${error.message}`, true);
-    setStatus("Film render failed. Check the message above.", true);
-  } finally {
-    archiveFilmRendering = false;
-    renderFilmBtn.disabled = false;
-    renderFilmBtn.textContent = "Render Film";
-  }
 }
 
 function restageLatestArchiveMoment() {
@@ -1879,17 +1601,14 @@ async function detectArMode() {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
     arBtn.disabled = false;
-    setArHelp("Place panels in your real room on the phone. Then return here to render a film.");
   } else if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
     arBtn.disabled = false;
-    setArHelp("Opens AR Quick Look on iOS.");
   } else {
     arMode = "unsupported";
     arBtn.textContent = "Start AR on Phone";
     arBtn.disabled = true;
-    setArHelp("AR placement must run on a phone via Viewer Link.", true);
   }
 
   if (arMode === "unsupported") {
@@ -2817,9 +2536,9 @@ function onArSessionEnded() {
   hideArOverlay();
   setAppVisible(true);
   if (role === "controller") {
-    setPanelVisibility(galleryPanel, toggleGalleryBtn, true);
+    galleryPanel.hidden = false;
   }
-  setStatus("AR session ended. Next: click Render Film.");
+  setStatus("AR session ended.");
 }
 
 async function toggleArSession() {
@@ -2998,7 +2717,6 @@ function bindEvents() {
   toggleSyncBtn?.addEventListener("click", () => {
     triggerShareFromDock();
   });
-  toggleGalleryBtn?.addEventListener("click", toggleGalleryPanel);
   openShareSessionBtn?.addEventListener("click", toggleShareSessionDetails);
 
   runBtn?.addEventListener("click", () => {
@@ -3037,7 +2755,6 @@ function bindEvents() {
   copyLinkBtn?.addEventListener("click", shareViewerLink);
   qrLinkBtn?.addEventListener("click", showViewerQr);
   publishArchiveBtn?.addEventListener("click", publishArchiveLink);
-  renderFilmBtn?.addEventListener("click", renderArchiveFilm);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
   archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));
@@ -3164,7 +2881,7 @@ async function start() {
   renderGallery();
   updateRoleUI();
   setPanelVisibility(syncPanel, toggleSyncBtn, false);
-  setPanelVisibility(galleryPanel, toggleGalleryBtn, false);
+  galleryPanel.hidden = false;
   if (shareSessionDetails) {
     shareSessionDetails.hidden = true;
   }
