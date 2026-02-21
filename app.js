@@ -6,14 +6,10 @@ const runBtn = document.getElementById("run-btn");
 const resetBtn = document.getElementById("reset-btn");
 const randomBtn = document.getElementById("random-btn");
 const arBtn = document.getElementById("ar-btn");
-const publishArchiveBtn = document.getElementById("publish-archive-btn");
 const statusEl = document.getElementById("status");
 const appRoot = document.querySelector(".app");
-const toggleSyncBtn = document.getElementById("toggle-sync-btn");
 const syncPanel = document.getElementById("sync-panel");
 const galleryPanel = document.getElementById("gallery-panel");
-const openShareSessionBtn = document.getElementById("open-share-session-btn");
-const shareSessionDetails = document.getElementById("share-session-details");
 
 const roleChip = document.getElementById("role-chip");
 const roomIdInput = document.getElementById("room-id");
@@ -260,40 +256,6 @@ function setSyncStatus(message, isError = false) {
 
 function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
-}
-
-function setPanelVisibility(panelEl, toggleBtn, visible) {
-  if (!panelEl || !toggleBtn) {
-    return;
-  }
-  panelEl.hidden = !visible;
-  toggleBtn.setAttribute("aria-expanded", String(visible));
-  toggleBtn.classList.toggle("active", visible);
-}
-
-function toggleSyncPanel() {
-  if (!syncPanel || !toggleSyncBtn) {
-    return;
-  }
-  setPanelVisibility(syncPanel, toggleSyncBtn, syncPanel.hidden);
-}
-
-async function triggerShareFromDock() {
-  setPanelVisibility(syncPanel, toggleSyncBtn, true);
-  if (shareSessionDetails?.hidden) {
-    toggleShareSessionDetails();
-  }
-  await shareViewerLink();
-}
-
-function toggleShareSessionDetails() {
-  if (!shareSessionDetails || !openShareSessionBtn) {
-    return;
-  }
-  const nextVisible = shareSessionDetails.hidden;
-  shareSessionDetails.hidden = !nextVisible;
-  openShareSessionBtn.textContent = nextVisible ? "Hide Session Details" : "Share AR Session";
-  openShareSessionBtn.setAttribute("aria-expanded", String(nextVisible));
 }
 
 function setImmersiveUiMode(mode) {
@@ -929,17 +891,6 @@ function buildViewerUrl() {
   return { room, url: url.toString() };
 }
 
-function buildArchiveUrl() {
-  const room =
-    (roomIdInput.value || "").trim() ||
-    new URLSearchParams(window.location.search).get("room") ||
-    "";
-  const url = new URL(window.location.href);
-  url.searchParams.set("role", "viewer");
-  url.searchParams.set("room", room);
-  return { room, url: url.toString() };
-}
-
 async function shareViewerLink() {
   const { room, url } = buildViewerUrl();
   if (!room) {
@@ -989,21 +940,6 @@ function showViewerQr() {
 
   qrUrlEl.textContent = url;
   qrDialog.showModal();
-}
-
-async function publishArchiveLink() {
-  const { room, url } = buildArchiveUrl();
-  if (!room) {
-    setSyncStatus("Start host session first.", true);
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(url);
-    setSyncStatus("Archive link copied.");
-  } catch {
-    setSyncStatus(`Archive link: ${url}`);
-  }
 }
 
 function loadGallery() {
@@ -1869,10 +1805,14 @@ function initArScene() {
   xrHydraGeometry = new THREE.PlaneGeometry(PANEL_WIDTH_METERS, PANEL_HEIGHT_METERS);
 
   const reticleGeo = new THREE.RingGeometry(0.06, 0.09, 32);
-  reticleGeo.rotateX(-Math.PI / 2);
   xrReticle = new THREE.Mesh(
     reticleGeo,
-    new THREE.MeshBasicMaterial({ color: 0x5de9ff })
+    new THREE.MeshBasicMaterial({
+      color: 0x5de9ff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95
+    })
   );
   xrReticle.matrixAutoUpdate = false;
   xrReticle.visible = false;
@@ -2443,7 +2383,10 @@ function onArFrame(_, frame) {
         selected = buildEstimatedWallSurface(cameraPos, cameraForward, 1.2);
       }
       if (selected?.kind === "floor") {
-        xrReticle.matrix.compose(selected.position, selected.quaternion, scale);
+        const floorPos = selected.position
+          .clone()
+          .add(selected.normal.clone().multiplyScalar(0.008));
+        xrReticle.matrix.compose(floorPos, selected.quaternion, scale);
         xrReticle.visible = true;
         xrWallReticle.visible = false;
         currentReticleSurface = selected;
@@ -2714,11 +2657,6 @@ function onWindowResize() {
 }
 
 function bindEvents() {
-  toggleSyncBtn?.addEventListener("click", () => {
-    triggerShareFromDock();
-  });
-  openShareSessionBtn?.addEventListener("click", toggleShareSessionDetails);
-
   runBtn?.addEventListener("click", () => {
     currentSketchId = null;
     applyHydraCode(codeEditor.value);
@@ -2754,7 +2692,6 @@ function bindEvents() {
 
   copyLinkBtn?.addEventListener("click", shareViewerLink);
   qrLinkBtn?.addEventListener("click", showViewerQr);
-  publishArchiveBtn?.addEventListener("click", publishArchiveLink);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
   archiveNextBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex + 1));
@@ -2880,15 +2817,8 @@ async function start() {
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
-  setPanelVisibility(syncPanel, toggleSyncBtn, false);
+  syncPanel.hidden = false;
   galleryPanel.hidden = false;
-  if (shareSessionDetails) {
-    shareSessionDetails.hidden = true;
-  }
-  if (openShareSessionBtn) {
-    openShareSessionBtn.textContent = "Share AR Session";
-    openShareSessionBtn.setAttribute("aria-expanded", "false");
-  }
   bindEvents();
   codeEditor.value = "";
 

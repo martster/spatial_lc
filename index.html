@@ -3,22 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="argolis is a spatial live coding tool to place and revisit Hydra visuals in AR."
+    />
+    <meta name="theme-color" content="#15181d" />
     <title>argolis | Living Archive</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app">
       <header class="topbar">
-        <h1>argolis</h1>
-        <p>
-          argolis turns your room into a living archive of code moments. Capture, place, and revisit
-          visual memories where they happened.
+        <p class="topbar-kicker">Spatial Live Coding</p>
+        <h1>argolis <span>living archive</span></h1>
+        <p class="topbar-claim">
+          Turn your room into a timeline of Hydra moments. Capture, place, and revisit visual states
+          exactly where they happened.
         </p>
       </header>
 
-      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls" hidden>
-        <button id="open-share-session-btn" type="button">Share AR Session</button>
-        <div id="share-session-details" hidden>
+      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls">
+        <div id="share-session-details">
           <p id="role-chip" class="chip">Mode: Initializing</p>
           <p class="sync-help">
             Host edits code on laptop. Viewer opens the shared link on phone and places visuals in AR.
@@ -46,6 +51,7 @@
         <textarea id="hydra-code" spellcheck="false"></textarea>
         <div class="buttons">
           <button id="run-btn" type="button">Run</button>
+          <button id="random-btn" type="button">Random</button>
           <button id="ar-btn" type="button">Start AR</button>
         </div>
         <p id="status" role="status" aria-live="polite"></p>
@@ -55,7 +61,6 @@
         <div class="gallery-head">
           <h2>Placed Panels</h2>
           <div class="gallery-head-actions">
-            <button id="publish-archive-btn" type="button">Publish Archive</button>
             <button id="clear-gallery-btn" type="button">Clear Gallery</button>
           </div>
         </div>
@@ -71,11 +76,14 @@
         </div>
         <div id="gallery-grid" class="gallery-grid"></div>
       </section>
-
-      <section class="action-dock" aria-label="Primary navigation">
-        <button id="toggle-sync-btn" type="button" aria-expanded="false">Share Session</button>
-      </section>
     </main>
+    <footer class="site-footer" aria-label="Legal and meta links">
+      <p>(c) 2026 argolis</p>
+      <nav class="site-footer-links" aria-label="Legal links">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+      </nav>
+    </footer>
 
     <div id="ar-overlay" class="ar-overlay" hidden>
       <button id="overlay-exit-btn" type="button">Exit AR</button>
