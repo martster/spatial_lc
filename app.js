@@ -15,11 +15,10 @@ const roleChip = document.getElementById("role-chip");
 const roomIdInput = document.getElementById("room-id");
 const hostBtn = document.getElementById("host-btn");
 const joinBtn = document.getElementById("join-btn");
-const shareToggleBtn = document.getElementById("share-toggle-btn");
+const openShareSessionBtn = document.getElementById("open-share-session-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
 const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
-const shareSessionDetails = document.getElementById("share-session-details");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
@@ -267,12 +266,14 @@ function updateArButtonUi() {
   arBtn.disabled = unsupported;
 }
 
-function toggleSharePanel() {
-  if (!syncPanel || !shareSessionDetails || !shareToggleBtn) {
+function toggleShareSessionPanel() {
+  if (!syncPanel || !openShareSessionBtn) {
     return;
   }
-  const collapsed = syncPanel.classList.toggle("collapsed");
-  shareToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  const nextVisible = syncPanel.hidden;
+  syncPanel.hidden = !nextVisible;
+  openShareSessionBtn.setAttribute("aria-expanded", String(nextVisible));
+  openShareSessionBtn.textContent = nextVisible ? "Hide AR Session" : "Share AR Session";
 }
 
 function setAppVisible(visible) {
@@ -2715,7 +2716,7 @@ function bindEvents() {
   });
 
   copyLinkBtn?.addEventListener("click", shareViewerLink);
-  shareToggleBtn?.addEventListener("click", toggleSharePanel);
+  openShareSessionBtn?.addEventListener("click", toggleShareSessionPanel);
   qrLinkBtn?.addEventListener("click", showViewerQr);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));
@@ -2842,7 +2843,6 @@ async function start() {
   galleryItems = loadGallery();
   renderGallery();
   updateRoleUI();
-  syncPanel.hidden = false;
   galleryPanel.hidden = false;
   bindEvents();
   codeEditor.value = "";

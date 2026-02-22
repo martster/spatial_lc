@@ -77,6 +77,10 @@ body {
   line-height: 1.55;
 }
 
+#open-share-session-btn {
+  margin-top: 0.64rem;
+}
+
 .sync-panel,
 .controls,
 .gallery {
@@ -90,23 +94,6 @@ body {
   display: grid;
   gap: 0.55rem;
   padding: 0.95rem;
-}
-
-.sync-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.sync-panel-head h2 {
-  margin: 0;
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.sync-panel.collapsed #share-session-details {
-  display: none;
 }
 
 .sync-help,
@@ -229,7 +216,7 @@ button:disabled {
 #run-btn,
 #random-btn,
 #ar-btn,
-#share-toggle-btn,
+#open-share-session-btn,
 #copy-link-btn,
 #qr-link-btn,
 #overlay-replay-start-btn,
@@ -361,13 +348,12 @@ button:disabled {
 
 body.viewer-role #copy-link-btn,
 body.viewer-role #qr-link-btn,
-body.viewer-role #share-toggle-btn,
+body.viewer-role #open-share-session-btn,
 body.viewer-role #run-btn,
 body.viewer-role #random-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .hydra-link-row,
-body.viewer-role .controls label,
-body.viewer-role .sync-panel-head {
+body.viewer-role .controls label {
   display: none;
 }
 

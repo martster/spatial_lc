@@ -20,13 +20,17 @@
           Turn your room into a timeline of Hydra moments. Capture, place, and revisit visual states
           exactly where they happened.
         </p>
+        <button
+          id="open-share-session-btn"
+          type="button"
+          aria-controls="sync-panel"
+          aria-expanded="false"
+        >
+          Share AR Session
+        </button>
       </header>
 
-      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls">
-        <div class="sync-panel-head">
-          <h2>Session</h2>
-          <button id="share-toggle-btn" type="button" aria-controls="share-session-details" aria-expanded="true">SHare</button>
-        </div>
+      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls" hidden>
         <div id="share-session-details">
           <p id="role-chip" class="chip">Mode: Initializing</p>
           <p class="sync-help">
