@@ -78,8 +78,7 @@ body {
 }
 
 #open-share-session-btn {
-  width: fit-content;
-  justify-self: center;
+  width: 100%;
 }
 
 .sync-panel,
