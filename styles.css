@@ -61,7 +61,7 @@ body {
   width: fit-content;
   padding: 0.22rem 0.48rem;
   border: 1px solid rgba(109, 184, 255, 0.38);
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(109, 184, 255, 0.08);
   color: #cbe4ff;
   font-size: 0.7rem;
