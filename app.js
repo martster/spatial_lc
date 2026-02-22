@@ -2832,21 +2832,20 @@ function autoSetupSession() {
 }
 
 async function start() {
-  if (role !== "archive" && !navigator.mediaDevices?.getUserMedia) {
-    setStatus("Camera API is not supported in this browser.", true);
-    return;
-  }
-
+  galleryItems = loadGallery();
+  renderGallery();
   if (role === "archive") {
     role = "viewer";
   }
-
-  galleryItems = loadGallery();
-  renderGallery();
   updateRoleUI();
   galleryPanel.hidden = false;
   bindEvents();
   codeEditor.value = "";
+
+  if (role !== "archive" && !navigator.mediaDevices?.getUserMedia) {
+    setStatus("Camera API is not supported in this browser.", true);
+    return;
+  }
 
   try {
     await setupCamera();
