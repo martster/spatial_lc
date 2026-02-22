@@ -14,7 +14,7 @@
   <body>
     <main class="app">
       <header class="topbar">
-        <p class="topbar-kicker">Spatial Live Coding</p>
+        <p class="topbar-kicker">Hydra AR Studio</p>
         <h1>argolis <span>living archive</span></h1>
         <p class="topbar-claim">
           Turn your room into a timeline of Hydra moments. Capture, place, and revisit visual states
@@ -23,6 +23,10 @@
       </header>
 
       <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls">
+        <div class="sync-panel-head">
+          <h2>Session</h2>
+          <button id="share-toggle-btn" type="button" aria-controls="share-session-details" aria-expanded="true">SHare</button>
+        </div>
         <div id="share-session-details">
           <p id="role-chip" class="chip">Mode: Initializing</p>
           <p class="sync-help">

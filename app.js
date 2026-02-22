@@ -15,9 +15,11 @@ const roleChip = document.getElementById("role-chip");
 const roomIdInput = document.getElementById("room-id");
 const hostBtn = document.getElementById("host-btn");
 const joinBtn = document.getElementById("join-btn");
+const shareToggleBtn = document.getElementById("share-toggle-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
 const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
+const shareSessionDetails = document.getElementById("share-session-details");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
@@ -254,6 +256,25 @@ function setSyncStatus(message, isError = false) {
   syncStatusEl.classList.toggle("error", isError);
 }
 
+function updateArButtonUi() {
+  if (!arBtn) {
+    return;
+  }
+
+  const unsupported = arMode === "unsupported";
+  const isHostRole = role === "controller";
+  arBtn.hidden = unsupported && isHostRole;
+  arBtn.disabled = unsupported;
+}
+
+function toggleSharePanel() {
+  if (!syncPanel || !shareSessionDetails || !shareToggleBtn) {
+    return;
+  }
+  const collapsed = syncPanel.classList.toggle("collapsed");
+  shareToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+}
+
 function setAppVisible(visible) {
   appRoot.style.display = visible ? "" : "none";
 }
@@ -403,6 +424,7 @@ function updateRoleUI() {
       archiveControlsToggleBtn.textContent = "Playback";
     }
   }
+  updateArButtonUi();
 }
 
 async function applyStartupSnippet() {
@@ -1536,19 +1558,21 @@ async function detectArMode() {
   if (supportsArWebXr) {
     arMode = "webxr";
     arBtn.textContent = "Start AR";
-    arBtn.disabled = false;
   } else if (isQuickLookCapable()) {
     arMode = "quicklook";
     arBtn.textContent = "Open AR (iOS)";
-    arBtn.disabled = false;
   } else {
     arMode = "unsupported";
-    arBtn.textContent = "Start AR on Phone";
-    arBtn.disabled = true;
+    arBtn.textContent = "AR only on Phone";
   }
+  updateArButtonUi();
 
   if (arMode === "unsupported") {
-    setStatus("AR is not available here. Open the viewer link on a smartphone.");
+    setStatus(
+      role === "controller"
+        ? "This laptop hosts code. Scan/open the viewer link on your phone for AR placement."
+        : "AR is not available here. Open the viewer link on a smartphone."
+    );
   }
 }
 
@@ -2691,6 +2715,7 @@ function bindEvents() {
   });
 
   copyLinkBtn?.addEventListener("click", shareViewerLink);
+  shareToggleBtn?.addEventListener("click", toggleSharePanel);
   qrLinkBtn?.addEventListener("click", showViewerQr);
   qrCloseBtn?.addEventListener("click", () => qrDialog?.close());
   archivePrevBtn?.addEventListener("click", () => focusArchivePanel(archiveFocusIndex - 1));

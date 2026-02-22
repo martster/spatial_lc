@@ -40,16 +40,17 @@ body {
   margin: 0.2rem 0 0;
   font-size: clamp(1.8rem, 3.6vw, 2.9rem);
   font-weight: 700;
-  line-height: 0.96;
+  line-height: 1.08;
   letter-spacing: 0.02em;
   text-transform: lowercase;
 }
 
 .topbar h1 span {
   display: block;
-  margin-top: 0.1rem;
+  margin-top: 0.2rem;
   color: var(--accent-2);
   font-size: 0.48em;
+  line-height: 1.14;
   letter-spacing: 0.18em;
   font-weight: 600;
   text-transform: uppercase;
@@ -73,7 +74,7 @@ body {
   margin: 0.52rem 0 0;
   color: var(--muted);
   max-width: 56ch;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
 .sync-panel,
@@ -89,6 +90,23 @@ body {
   display: grid;
   gap: 0.55rem;
   padding: 0.95rem;
+}
+
+.sync-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sync-panel-head h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.sync-panel.collapsed #share-session-details {
+  display: none;
 }
 
 .sync-help,
@@ -211,6 +229,7 @@ button:disabled {
 #run-btn,
 #random-btn,
 #ar-btn,
+#share-toggle-btn,
 #copy-link-btn,
 #qr-link-btn,
 #overlay-replay-start-btn,
@@ -278,6 +297,7 @@ button:disabled {
   padding: 0.45rem 0.48rem 0;
   color: var(--muted);
   font-size: 0.74rem;
+  line-height: 1.4;
 }
 
 .gallery-actions {
@@ -341,11 +361,13 @@ button:disabled {
 
 body.viewer-role #copy-link-btn,
 body.viewer-role #qr-link-btn,
+body.viewer-role #share-toggle-btn,
 body.viewer-role #run-btn,
 body.viewer-role #random-btn,
 body.viewer-role #hydra-code,
 body.viewer-role .hydra-link-row,
-body.viewer-role .controls label {
+body.viewer-role .controls label,
+body.viewer-role .sync-panel-head {
   display: none;
 }
 
