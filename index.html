@@ -20,18 +20,18 @@
           Turn your room into a timeline of Hydra moments. Capture, place, and revisit visual states
           exactly where they happened.
         </p>
+      </header>
+
+      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls">
         <button
           id="open-share-session-btn"
           type="button"
-          aria-controls="sync-panel"
+          aria-controls="share-session-details"
           aria-expanded="false"
         >
           Share AR Session
         </button>
-      </header>
-
-      <section id="sync-panel" class="sync-panel" aria-label="Live sync session controls" hidden>
-        <div id="share-session-details">
+        <div id="share-session-details" hidden>
           <p id="role-chip" class="chip">Mode: Initializing</p>
           <p class="sync-help">
             Host edits code on laptop. Viewer opens the shared link on phone and places visuals in AR.

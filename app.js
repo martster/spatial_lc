@@ -19,6 +19,7 @@ const openShareSessionBtn = document.getElementById("open-share-session-btn");
 const copyLinkBtn = document.getElementById("copy-link-btn");
 const qrLinkBtn = document.getElementById("qr-link-btn");
 const syncStatusEl = document.getElementById("sync-status");
+const shareSessionDetails = document.getElementById("share-session-details");
 
 const overlayRoot = document.getElementById("ar-overlay");
 const overlayExitBtn = document.getElementById("overlay-exit-btn");
@@ -267,11 +268,11 @@ function updateArButtonUi() {
 }
 
 function toggleShareSessionPanel() {
-  if (!syncPanel || !openShareSessionBtn) {
+  if (!shareSessionDetails || !openShareSessionBtn) {
     return;
   }
-  const nextVisible = syncPanel.hidden;
-  syncPanel.hidden = !nextVisible;
+  const nextVisible = shareSessionDetails.hidden;
+  shareSessionDetails.hidden = !nextVisible;
   openShareSessionBtn.setAttribute("aria-expanded", String(nextVisible));
   openShareSessionBtn.textContent = nextVisible ? "Hide AR Session" : "Share AR Session";
 }
