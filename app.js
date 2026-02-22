@@ -274,7 +274,6 @@ function toggleShareSessionPanel() {
   const nextVisible = shareSessionDetails.hidden;
   shareSessionDetails.hidden = !nextVisible;
   openShareSessionBtn.setAttribute("aria-expanded", String(nextVisible));
-  openShareSessionBtn.textContent = nextVisible ? "Hide AR Session" : "Share AR Session";
 }
 
 function setAppVisible(visible) {
